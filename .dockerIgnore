@@ -1,0 +1,41 @@
+# Dependencies
+node_modules
+
+# Next.js
+.next
+out
+
+# Git
+.git
+.gitignore
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Editor
+.vscode
+.idea
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage
+
+# Build cache
+*.tsbuildinfo
+
+# No enviar archivos innecesarios
+README.md
