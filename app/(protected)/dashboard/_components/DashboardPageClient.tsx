@@ -530,7 +530,7 @@ export default function DashboardPageClient({ initialOrders }: DashboardPageClie
                                 Autoservicio de Comida Rápida
                             </p>
                             <p className="text-[11px] font-semibold text-slate-500">
-                                NIT: 901.458.293-1 | Tel: +57 300 123 4567
+                                Tel: +57 300 123 4567
                             </p>
                             <div className="pt-2">
                                 <span className="inline-block bg-slate-900 text-white font-black text-xs px-3 py-1 rounded-sm uppercase tracking-widest">

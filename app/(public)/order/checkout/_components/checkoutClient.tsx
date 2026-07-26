@@ -6,7 +6,8 @@ import { useCart } from '@/app/_hooks/use-cart'
 import { formatCurrency, getCartFromStorage } from '@/utils/cartStorage'
 import { PaymentType } from '@/types/Order'
 import { createOrder, getDeliveryFee } from '@/app/(public)/order/actions'
-import { ArrowLeft, DollarSign, CreditCard, Send, MapPin, ShoppingBag, Check, Truck, X, Plus, Minus, Trash2 } from 'lucide-react'
+import { ArrowLeft, DollarSign, CreditCard, Send, MapPin, ShoppingBag, Check, Truck, X, Plus, Minus, Trash2, Map } from 'lucide-react'
+import LocationPickerModal from './LocationPickerModal'
 
 interface CheckoutClientProps {
     initialDeliveryFee?: number
@@ -19,6 +20,8 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
         isHydrated,
         getTotal,
         setBuyerName,
+        setBuyerPhone,
+        setBuyerEmail,
         setDeliveryAddress,
         setPaymentType,
         clearCart,
@@ -28,11 +31,31 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
 
     const [isLoading, setIsLoading] = useState(false)
     const [deliveryFee, setDeliveryFee] = useState<number>(initialDeliveryFee)
+    const [nameInput, setNameInput] = useState(cart.buyerName || '')
+    const [phoneInput, setPhoneInput] = useState(cart.buyerPhone || '')
+    const [emailInput, setEmailInput] = useState(cart.buyerEmail || '')
     const [streetInput, setStreetInput] = useState(cart.deliveryAddress?.street || '')
     const [referenceInput, setReferenceInput] = useState(cart.deliveryAddress?.reference || '')
     const [selectedPayment, setSelectedPayment] = useState<PaymentType | null>(cart.paymentType || 'cash')
     const [errorModal, setErrorModal] = useState<string | null>(null)
+    const [isMapOpen, setIsMapOpen] = useState(false)
     const isNavigatingToConfirmation = useRef(false)
+
+    useEffect(() => {
+        if (!isHydrated) return
+        if (cart.buyerName) setNameInput(cart.buyerName)
+        if (cart.buyerPhone) setPhoneInput(cart.buyerPhone)
+        if (cart.buyerEmail) setEmailInput(cart.buyerEmail)
+        if (cart.deliveryAddress?.street) setStreetInput(cart.deliveryAddress.street)
+        if (cart.deliveryAddress?.reference) setReferenceInput(cart.deliveryAddress.reference)
+    }, [
+        isHydrated,
+        cart.buyerName,
+        cart.buyerPhone,
+        cart.buyerEmail,
+        cart.deliveryAddress?.street,
+        cart.deliveryAddress?.reference,
+    ])
 
     useEffect(() => {
         if (!isHydrated || isNavigatingToConfirmation.current) return
@@ -61,6 +84,21 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
     const activeDeliveryFee = cart.location === 'delivery' ? deliveryFee : 0
     const finalTotal = subtotal + activeDeliveryFee
 
+    const handleNameChange = (val: string) => {
+        setNameInput(val)
+        setBuyerName(val)
+    }
+
+    const handlePhoneChange = (val: string) => {
+        setPhoneInput(val)
+        setBuyerPhone(val)
+    }
+
+    const handleEmailChange = (val: string) => {
+        setEmailInput(val)
+        setBuyerEmail(val)
+    }
+
     const handleStreetChange = (val: string) => {
         setStreetInput(val)
         setDeliveryAddress({
@@ -77,7 +115,31 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
         })
     }
 
+    const handleLocationSelected = (data: { street: string; reference: string; lat?: number; lng?: number }) => {
+        if (data.street) {
+            setStreetInput(data.street)
+        }
+        if (data.reference) {
+            setReferenceInput(data.reference)
+        }
+        setDeliveryAddress({
+            street: data.street || streetInput,
+            reference: data.reference || referenceInput,
+            coordinates: data.lat && data.lng ? { lat: data.lat, lng: data.lng } : undefined,
+        })
+    }
+
     const handleCreateOrder = async () => {
+        if (!nameInput.trim()) {
+            setErrorModal('Por favor ingresa tu nombre completo')
+            return
+        }
+
+        if (!phoneInput.trim()) {
+            setErrorModal('Por favor ingresa tu número de teléfono')
+            return
+        }
+
         if (!selectedPayment) {
             setErrorModal('Por favor selecciona un método de pago')
             return
@@ -105,7 +167,9 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
             const orderDetails = {
                 location: cart.location,
                 items: cart.items,
-                buyerName: cart.buyerName || 'Cliente',
+                buyerName: nameInput.trim(),
+                buyerPhone: phoneInput.trim(),
+                buyerEmail: emailInput.trim() || undefined,
                 deliveryAddress: deliveryAddressToUse,
                 paymentType: selectedPayment,
                 total: finalTotal,
@@ -201,9 +265,13 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
                                             </p>
                                         </div>
                                         {item && 'ingredients' in item && item.ingredients && item.ingredients.length > 0 && (
-                                            <p className="text-xs text-amber-600 font-semibold mt-0.5">
-                                                + {item.ingredients.length} topping(s) adicional(es)
-                                            </p>
+                                            <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                                                {item.ingredients.map((ing) => (
+                                                    <span key={ing.id} className="inline-flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded-sm text-[11px] font-extrabold text-amber-800 border border-amber-300">
+                                                        + {ing.name} {ing.quantity > 1 ? `(x${ing.quantity})` : ''}
+                                                    </span>
+                                                ))}
+                                            </div>
                                         )}
                                         {item && 'sauces' in item && item.sauces && item.sauces.length > 0 && (
                                             <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
@@ -261,16 +329,53 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
                     </div>
                 </div>
 
-                {/* Buyer Name */}
-                <div className="bg-white border border-slate-200 rounded-none p-6 shadow-sm space-y-3">
-                    <h3 className="text-base font-black text-slate-900">Nombre del Cliente (Opcional)</h3>
-                    <input
-                        type="text"
-                        placeholder="Ej: Juan Pérez"
-                        defaultValue={cart.buyerName || ''}
-                        onChange={(e) => setBuyerName(e.target.value)}
-                        className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-none text-slate-900 placeholder-slate-400 focus:outline-none focus:border-secondary transition-colors font-medium"
-                    />
+                {/* Customer Details */}
+                <div className="bg-white border border-slate-200 rounded-sm p-6 shadow-sm space-y-4">
+                    <h3 className="text-base font-black text-slate-900 border-b border-slate-100 pb-3 flex items-center justify-between">
+                        <span>Datos del Cliente</span>
+                        <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">* Obligatorio</span>
+                    </h3>
+
+                    <div className="space-y-3">
+                        <div>
+                            <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-600 mb-1">
+                                Nombre Completo *
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="Ej: Juan Pérez"
+                                value={nameInput}
+                                onChange={(e) => handleNameChange(e.target.value)}
+                                className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-secondary transition-colors font-medium"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-600 mb-1">
+                                Número de Teléfono *
+                            </label>
+                            <input
+                                type="tel"
+                                placeholder="Ej: 3001234567"
+                                value={phoneInput}
+                                onChange={(e) => handlePhoneChange(e.target.value)}
+                                className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-secondary transition-colors font-medium"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-600 mb-1">
+                                Correo Electrónico (Opcional)
+                            </label>
+                            <input
+                                type="email"
+                                placeholder="Ej: cliente@correo.com"
+                                value={emailInput}
+                                onChange={(e) => handleEmailChange(e.target.value)}
+                                className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-secondary transition-colors font-medium"
+                            />
+                        </div>
+                    </div>
                 </div>
 
                 {/* Delivery Address direct inputs if delivery mode */}
@@ -286,11 +391,31 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
                                 <span className="text-amber-700 font-black">{formatCurrency(deliveryFee)}</span>
                             </div>
                         </div>
+
+                        {/* Map Picker trigger button */}
+                        <button
+                            type="button"
+                            onClick={() => setIsMapOpen(true)}
+                            className="w-full py-3 px-4 bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 font-black text-xs rounded-sm border border-amber-300 flex items-center justify-center gap-2 transition-all cursor-pointer touch-manipulation shadow-xs active:scale-[0.99]"
+                        >
+                            <MapPin className="w-4 h-4 text-amber-700 shrink-0" />
+                            <span>Seleccionar o Fijar Ubicación en el Mapa (GPS)</span>
+                        </button>
+
                         <div className="space-y-3">
                             <div>
-                                <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-1">
-                                    Dirección Completa
-                                </label>
+                                <div className="flex items-center justify-between mb-1">
+                                    <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-500">
+                                        Dirección Completa
+                                    </label>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsMapOpen(true)}
+                                        className="text-xs font-bold text-amber-700 hover:text-amber-800 flex items-center gap-1 cursor-pointer"
+                                    >
+                                        <MapPin className="w-3.5 h-3.5" /> Abrir Mapa
+                                    </button>
+                                </div>
                                 <input
                                     type="text"
                                     value={streetInput}
@@ -307,7 +432,7 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
                                     type="text"
                                     value={referenceInput}
                                     onChange={(e) => handleReferenceChange(e.target.value)}
-                                    placeholder="Ej: Casa esquinera portón blanco"
+                                    placeholder="Ej: Casa esquinera portón blanco / Barrio Chapinero"
                                     className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-secondary font-medium"
                                 />
                             </div>
@@ -324,7 +449,7 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
                             const getPaymentLabel = (m: string) => {
                                 switch (m) {
                                     case 'cash':
-                                        return { label: 'Efectivo en Caja', icon: <DollarSign className="w-5 h-5 text-slate-800" /> }
+                                        return { label: 'Efectivo ', icon: <DollarSign className="w-5 h-5 text-slate-800" /> }
                                     case 'card':
                                         return { label: 'Tarjeta de Débito/Crédito', icon: <CreditCard className="w-5 h-5 text-slate-800" /> }
                                     case 'transfer':
@@ -340,11 +465,10 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
                                     key={method}
                                     type="button"
                                     onClick={() => setSelectedPayment(method as PaymentType)}
-                                    className={`w-full p-4 rounded-sm border cursor-pointer transition-all flex items-center justify-between touch-manipulation ${
-                                        isSelected
-                                            ? 'bg-amber-500/10 border-secondary text-slate-900 font-bold ring-1 ring-secondary'
-                                            : 'bg-white border-slate-200 hover:border-slate-400 text-slate-800'
-                                    }`}
+                                    className={`w-full p-4 rounded-sm border cursor-pointer transition-all flex items-center justify-between touch-manipulation ${isSelected
+                                        ? 'bg-amber-500/10 border-secondary text-slate-900 font-bold ring-1 ring-secondary'
+                                        : 'bg-white border-slate-200 hover:border-slate-400 text-slate-800'
+                                        }`}
                                 >
                                     <div className="flex items-center gap-3 pointer-events-none">
                                         <div className="p-2 bg-slate-100 rounded-sm">
@@ -352,9 +476,8 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
                                         </div>
                                         <span className="font-extrabold text-sm text-slate-900">{label}</span>
                                     </div>
-                                    <div className={`w-6 h-6 rounded-sm border flex items-center justify-center transition-colors pointer-events-none ${
-                                        isSelected ? 'bg-secondary border-secondary text-white' : 'border-slate-300 bg-slate-50'
-                                    }`}>
+                                    <div className={`w-6 h-6 rounded-sm border flex items-center justify-center transition-colors pointer-events-none ${isSelected ? 'bg-secondary border-secondary text-white' : 'border-slate-300 bg-slate-50'
+                                        }`}>
                                         {isSelected && <Check className="w-4 h-4 stroke-[3]" />}
                                     </div>
                                 </button>
@@ -426,6 +549,14 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
                     </div>
                 </div>
             )}
+
+            {/* Location Picker Modal */}
+            <LocationPickerModal
+                isOpen={isMapOpen}
+                onClose={() => setIsMapOpen(false)}
+                onSelectLocation={handleLocationSelected}
+                initialAddress={streetInput}
+            />
         </div>
     )
 }

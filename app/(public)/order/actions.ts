@@ -118,14 +118,16 @@ export async function createOrder(details: OrderDetails): Promise<OrderResponse>
                 onSite: details.location === 'onSite',
                 address: details.deliveryAddress?.street || '',
                 buyerName: details.buyerName,
+                buyerPhone: details.buyerPhone,
+                buyerEmail: details.buyerEmail || null,
                 status: 'CREATED',
                 items: {
                     create: details.items.map((item) => ({
                         quantity: item.quantity || 1,
                         unitPrice: new Prisma.Decimal(item.price),
                         ...(item.type === 'product'
-                            ? { productId: item.id }
-                            : { drinkId: item.id }),
+                            ? { productId: (item as any).productId || item.id }
+                            : { drinkId: (item as any).drinkId || item.id }),
                         ...('ingredients' in item && item.ingredients
                             ? {
                                 extras: {
@@ -192,7 +194,9 @@ export async function getOrderDetail(orderId: number): Promise<OrderResponse> {
             total: order.total.toString(),
             onSite: order.onSite,
             address: order.address,
-            buyerName: order.buyerName || undefined,
+            buyerName: order.buyerName,
+            buyerPhone: order.buyerPhone || undefined,
+            buyerEmail: order.buyerEmail || undefined,
             status: order.status as any,
             createdAt: order.createdAt.toISOString(),
             updatedAt: order.updatedAt.toISOString(),
@@ -278,7 +282,9 @@ export async function getAllActiveOrders(): Promise<OrderResponse[]> {
             total: order.total.toString(),
             onSite: order.onSite,
             address: order.address,
-            buyerName: order.buyerName || undefined,
+            buyerName: order.buyerName,
+            buyerPhone: order.buyerPhone || undefined,
+            buyerEmail: order.buyerEmail || undefined,
             status: order.status as any,
             createdAt: order.createdAt.toISOString(),
             updatedAt: order.updatedAt.toISOString(),

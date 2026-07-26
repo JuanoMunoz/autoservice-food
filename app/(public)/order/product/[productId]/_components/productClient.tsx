@@ -123,7 +123,7 @@ export default function ProductClient({ initialProduct, initialSauces }: Product
         (sum, ing) => sum + ing.price * ing.quantity,
         0
     )
-    const totalPrice = (parseFloat(product?.price || '0') + ingredientsCost) * quantity
+    const totalPrice = (parseFloat(product?.price || '0') * quantity) + ingredientsCost
 
     return (
         <div className="min-h-screen bg-white text-slate-900 pb-36 font-sans select-none">

@@ -14,18 +14,18 @@ export function calculateIngredientsTotal(
 }
 
 /**
- * Calcula el precio unitario de un item con ingredientes
+ * Calcula el precio unitario base de un item
  */
 export function calculateItemUnitPrice(item: CartItem): number {
-    const ingredientsCost = calculateIngredientsTotal(item)
-    return item.price + ingredientsCost
+    return item.price
 }
 
 /**
- * Calcula el precio total de un item (precio × cantidad)
+ * Calcula el precio total de un item (precio_producto × cantidad + total_ingredientes)
  */
 export function calculateItemTotalPrice(item: CartItem): number {
-    return calculateItemUnitPrice(item) * (item.quantity || 1)
+    const ingredientsCost = calculateIngredientsTotal(item)
+    return (item.price * (item.quantity || 1)) + ingredientsCost
 }
 
 /**

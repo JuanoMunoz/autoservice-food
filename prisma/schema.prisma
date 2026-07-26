@@ -115,16 +115,18 @@ model Products {
 }
 
 model Order {
-  id        Int         @id @default(autoincrement())
-  total     Decimal
-  onSite    Boolean     @default(true)
-  address   String
-  buyerName String?
-  status    OrderStatus
-  table     Int? //Se añadirá después
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  items     OrderItem[]
+  id         Int         @id @default(autoincrement())
+  total      Decimal
+  onSite     Boolean     @default(true)
+  address    String
+  buyerName  String
+  buyerPhone String
+  buyerEmail String?
+  status     OrderStatus
+  table      Int? //Se añadirá después
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  items      OrderItem[]
 }
 
 model OrderItem {

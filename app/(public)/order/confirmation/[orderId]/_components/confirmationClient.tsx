@@ -152,7 +152,7 @@ export default function ConfirmationClient({ initialOrder }: ConfirmationClientP
                             Autoservicio de Comida Rápida
                         </p>
                         <p className="text-[11px] font-semibold text-slate-500">
-                            NIT: 901.458.293-1 | Tel: +57 300 123 4567
+                            Tel: +57 310 3967137
                         </p>
                         <div className="pt-2">
                             <span className="inline-block bg-slate-900 text-white font-black text-xs px-3 py-1 rounded-sm uppercase tracking-widest">
@@ -175,6 +175,12 @@ export default function ConfirmationClient({ initialOrder }: ConfirmationClientP
                             <span className="text-slate-500 font-bold block uppercase text-[10px]">Cliente</span>
                             <span className="font-black text-slate-900">{order.buyerName || 'Cliente Kiosko'}</span>
                         </div>
+                        {order.buyerPhone && (
+                            <div>
+                                <span className="text-slate-500 font-bold block uppercase text-[10px]">Teléfono</span>
+                                <span className="font-black text-slate-900">{order.buyerPhone}</span>
+                            </div>
+                        )}
                         <div>
                             <span className="text-slate-500 font-bold block uppercase text-[10px]">Tipo de Servicio</span>
                             <span className="font-black text-slate-900">{order.onSite ? 'En el local (Para comer)' : 'A domicilio'}</span>

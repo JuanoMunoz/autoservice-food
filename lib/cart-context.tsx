@@ -22,6 +22,8 @@ export interface CartContextType {
     updateItemIngredients: (itemId: string, ingredients: any[], itemType: 'product' | 'drink') => void
     updateItemSauces: (itemId: string, sauces: any[], itemType: 'product' | 'drink') => void
     setBuyerName: (name: string) => void
+    setBuyerPhone: (phone: string) => void
+    setBuyerEmail: (email: string) => void
     setDeliveryAddress: (address: DeliveryAddress) => void
     setPaymentType: (type: PaymentType) => void
     getTotal: () => number
@@ -63,31 +65,83 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }, [])
 
 
+function areCartItemsEqual(a: CartItem, b: CartItem): boolean {
+    const aBaseId = (a as any).productId || (a as any).drinkId || a.id
+    const bBaseId = (b as any).productId || (b as any).drinkId || b.id
+
+    if (a.type !== b.type || aBaseId !== bBaseId) {
+        return false
+    }
+
+    if (a.type === 'product' && b.type === 'product') {
+        const aIngs = a.ingredients || []
+        const bIngs = b.ingredients || []
+
+        if (aIngs.length !== bIngs.length) return false
+
+        const sortedA = [...aIngs].sort((x, y) => x.id.localeCompare(y.id))
+        const sortedB = [...bIngs].sort((x, y) => x.id.localeCompare(y.id))
+
+        for (let i = 0; i < sortedA.length; i++) {
+            if (sortedA[i].id !== sortedB[i].id || sortedA[i].quantity !== sortedB[i].quantity) {
+                return false
+            }
+        }
+
+        const aSauces = a.sauces || []
+        const bSauces = b.sauces || []
+
+        if (aSauces.length !== bSauces.length) return false
+
+        const sortedASauces = [...aSauces].sort((x, y) => x.id.localeCompare(y.id))
+        const sortedBSauces = [...bSauces].sort((x, y) => x.id.localeCompare(y.id))
+
+        for (let i = 0; i < sortedASauces.length; i++) {
+            if (sortedASauces[i].id !== sortedBSauces[i].id) {
+                return false
+            }
+        }
+    }
+
+    return true
+}
+
     const addItem = useCallback((item: CartItem) => {
         setCart((prev) => {
-            const existingItem = prev.items.find(
-                (i) => i.id === item.id && i.id === (item as any).id
-            )
+            const existingIndex = prev.items.findIndex((existing) => areCartItemsEqual(existing, item))
 
-            if (existingItem && existingItem.quantity !== undefined) {
+            if (existingIndex !== -1) {
+                const updatedItems = [...prev.items]
+                const existingItem = updatedItems[existingIndex]
+                updatedItems[existingIndex] = {
+                    ...existingItem,
+                    quantity: (existingItem.quantity || 0) + (item.quantity || 1),
+                }
                 return {
                     ...prev,
-                    items: prev.items.map((i) =>
-                        i.id === item.id
-                            ? { ...i, quantity: (i.quantity || 0) + (item.quantity || 1) }
-                            : i
-                    ),
+                    items: updatedItems,
                 }
             }
 
+            const baseId = item.id
+            const uniqueId = `${baseId}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
+            const newItem: CartItem = {
+                ...item,
+                id: uniqueId,
+                quantity: item.quantity || 1,
+                ...(item.type === 'product'
+                    ? { productId: (item as any).productId || baseId }
+                    : { drinkId: (item as any).drinkId || baseId }),
+            } as CartItem
+
             return {
                 ...prev,
-                items: [...prev.items, { ...item, quantity: item.quantity || 1 }],
+                items: [...prev.items, newItem],
             }
         })
     }, [])
 
-    const removeItem = useCallback((itemId: string, itemType: 'product' | 'drink') => {
+    const removeItem = useCallback((itemId: string, itemType?: 'product' | 'drink') => {
         setCart((prev) => ({
             ...prev,
             items: prev.items.filter((item) => item.id !== itemId),
@@ -95,7 +149,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }, [])
 
     const updateItemQuantity = useCallback(
-        (itemId: string, quantity: number, itemType: 'product' | 'drink') => {
+        (itemId: string, quantity: number, itemType?: 'product' | 'drink') => {
             if (quantity <= 0) {
                 removeItem(itemId, itemType)
                 return
@@ -144,6 +198,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         }))
     }, [])
 
+    const setBuyerPhone = useCallback((phone: string) => {
+        setCart((prev) => ({
+            ...prev,
+            buyerPhone: phone,
+        }))
+    }, [])
+
+    const setBuyerEmail = useCallback((email: string) => {
+        setCart((prev) => ({
+            ...prev,
+            buyerEmail: email,
+        }))
+    }, [])
+
     const setDeliveryAddress = useCallback((address: DeliveryAddress) => {
         setCart((prev) => ({
             ...prev,
@@ -176,7 +244,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }, [cart.items])
 
     const clearCart = useCallback(() => {
-        setCart({ items: [] })
+        setCart((prev) => ({
+            items: [],
+            buyerName: prev.buyerName,
+            buyerPhone: prev.buyerPhone,
+            buyerEmail: prev.buyerEmail,
+            deliveryAddress: prev.deliveryAddress,
+            location: prev.location,
+        }))
     }, [])
 
     const value: CartContextType = {
@@ -189,6 +264,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         updateItemIngredients,
         updateItemSauces,
         setBuyerName,
+        setBuyerPhone,
+        setBuyerEmail,
         setDeliveryAddress,
         setPaymentType,
         getTotal,

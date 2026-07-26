@@ -18,6 +18,7 @@ export interface CartSauce {
 export interface CartProduct {
     type: 'product'
     id: string
+    productId?: string
     name: string
     description: string
     imageRoute?: string
@@ -30,6 +31,7 @@ export interface CartProduct {
 export interface CartDrink {
     type: 'drink'
     id: string
+    drinkId?: string
     name: string
     description: string
     imageRoute?: string
@@ -51,7 +53,9 @@ export interface DeliveryAddress {
 export interface OrderDetails {
     location: LocationType
     items: CartItem[]
-    buyerName?: string
+    buyerName: string
+    buyerPhone: string
+    buyerEmail?: string
     deliveryAddress?: DeliveryAddress
     paymentType?: PaymentType
     total: number
@@ -61,6 +65,8 @@ export interface Cart {
     location?: LocationType
     items: CartItem[]
     buyerName?: string
+    buyerPhone?: string
+    buyerEmail?: string
     deliveryAddress?: DeliveryAddress
     paymentType?: PaymentType
 }
@@ -70,7 +76,9 @@ export interface OrderResponse {
     total: string
     onSite: boolean
     address: string
-    buyerName?: string
+    buyerName: string
+    buyerPhone?: string
+    buyerEmail?: string
     status: OrderStatus
     createdAt: string
     updatedAt: string
