@@ -1,4 +1,4 @@
-# Next.js Auth Skeleton
+# CheesePapas Autoservicio Food
 
 Skeleton base para proyectos Next.js con **Better Auth** (autenticación), **Prisma 7** (ORM) como acceso a datos, y un sistema de **auditoría automática** integrado a nivel de cliente Prisma (registro de `createdById` / `updatedById` y logs de cambios en `AuditLog`).
 

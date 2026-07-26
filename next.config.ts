@@ -7,6 +7,13 @@ const withPWA = withPWAInit({
 });
 
 const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [{
+      protocol: 'https',
+      hostname: 'bivtry1w4b.ufs.sh',
+    }]
+  },
+  output: "standalone",
   turbopack: {},
 };
 

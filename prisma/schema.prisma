@@ -13,10 +13,186 @@ enum Role {
   USER
 }
 
+enum IngredientType {
+  FOOD
+  DRINK
+}
+
+enum OrderStatus {
+  CREATED
+  PREPARING
+  DELIVERING
+  COMPLETED
+  CANCELLED
+}
+
 enum AuditAction {
   CREATE
   UPDATE
   DELETE
+}
+
+model Configuration {
+  id        String   @id @default(uuid())
+  name      String
+  value     String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdByUserId String?
+  createdBy       User?   @relation("ConfigurationCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+}
+
+model Sauce {
+  id        String   @id @default(uuid())
+  name      String
+  hex       String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdByUserId String?
+  createdBy       User?   @relation("SauceCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  orderItems OrderItemSauce[]
+
+  @@index([createdByUserId])
+}
+
+model Drink {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  imageRoute  String?
+  price       Decimal
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdByUserId String?
+  createdBy       User?   @relation("DrinkCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  orderItems OrderItem[]
+
+  @@index([createdByUserId])
+}
+
+model Ingredients {
+  id          String         @id @default(uuid())
+  name        String
+  description String
+  imageRoute  String?
+  price       Decimal
+  type        IngredientType
+  isTopping   Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  createdByUserId String?
+  createdBy       User?   @relation("IngredientsCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  orderItemExtras    OrderItemIngredient[]
+  productIngredients ProductIngredient[]
+
+  @@index([createdByUserId])
+}
+
+model Products {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  imageRoute  String?
+  price       Decimal
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdByUserId String?
+  createdBy       User?   @relation("ProductsCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  orderItems         OrderItem[]
+  productIngredients ProductIngredient[]
+
+  @@index([createdByUserId])
+}
+
+model Order {
+  id        Int         @id @default(autoincrement())
+  total     Decimal
+  onSite    Boolean     @default(true)
+  address   String
+  buyerName String?
+  status    OrderStatus
+  table     Int? //Se añadirá después
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  items     OrderItem[]
+}
+
+model OrderItem {
+  id      String @id @default(uuid())
+  orderId Int
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId String?
+  product   Products? @relation(fields: [productId], references: [id])
+
+  drinkId String?
+  drink   Drink?  @relation(fields: [drinkId], references: [id])
+
+  quantity  Int     @default(1)
+  unitPrice Decimal
+
+  sauces OrderItemSauce[]
+  extras OrderItemIngredient[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([drinkId])
+}
+
+model OrderItemSauce {
+  id String @id @default(uuid())
+
+  orderItemId String
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  sauceId String
+  sauce   Sauce  @relation(fields: [sauceId], references: [id])
+
+  @@unique([orderItemId, sauceId])
+  @@index([orderItemId])
+  @@index([sauceId])
+}
+
+model ProductIngredient {
+  id String @id @default(uuid())
+
+  productId String
+  product   Products @relation(fields: [productId], references: [id])
+
+  ingredientId String
+  ingredient   Ingredients @relation(fields: [ingredientId], references: [id])
+
+  @@index([productId])
+  @@index([ingredientId])
+}
+
+model OrderItemIngredient {
+  id String @id @default(uuid())
+
+  orderItemId String
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  ingredientId String
+  ingredient   Ingredients @relation(fields: [ingredientId], references: [id])
+
+  quantity  Int     @default(1)
+  unitPrice Decimal
+
+  @@index([orderItemId])
+  @@index([ingredientId])
 }
 
 model User {
@@ -32,6 +208,12 @@ model User {
   role          Role
 
   auditLogs AuditLog[] @relation("AuditLogUser")
+
+  createdSauces      Sauce[]         @relation("SauceCreatedBy")
+  createdDrinks      Drink[]         @relation("DrinkCreatedBy")
+  createdIngredients Ingredients[]   @relation("IngredientsCreatedBy")
+  createdProducts    Products[]      @relation("ProductsCreatedBy")
+  configurations     Configuration[] @relation("ConfigurationCreatedBy")
 
   @@unique([email])
   @@map("user")

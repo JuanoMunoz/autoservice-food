@@ -1,5 +1,5 @@
 {
-  "name": "skeleton-project",
+  "name": "cheesepapas-autoservicio",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -16,15 +16,19 @@
   "dependencies": {
     "@better-auth/prisma-adapter": "^1.6.23",
     "@ducanh2912/next-pwa": "^10.2.9",
+    "@imgly/background-removal": "^1.7.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "@uiw/react-color": "^2.10.3",
+    "@uploadthing/react": "^7.3.3",
     "better-auth": "^1.6.23",
     "lucide-react": "^1.25.0",
     "next": "16.2.10",
     "pg": "^8.22.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "sonner": "^2.0.7"
+    "sonner": "^2.0.7",
+    "uploadthing": "^7.7.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

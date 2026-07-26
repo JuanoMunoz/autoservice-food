@@ -2,17 +2,16 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Calendar, UserPlus, Shield, LogOut } from "lucide-react"
 import { Role } from "../../types/User"
 import { navItems } from "../constants/constants"
 import { logoutAction } from "@/app/(protected)/dashboard/actions"
+import { LogOut } from "lucide-react"
 
 export default function SidebarNav({ role }: { role: Role }) {
   const pathname = usePathname()
   const activeNavItems = navItems.filter(link => link.roles.includes(role));
   return (
-    <nav className="flex-1 py-4 flex flex-col gap-0.5">
-
+    <nav className="flex-1 py-4 px-3 flex flex-col gap-1.5 overflow-y-auto">
       {activeNavItems.map(({ href, icon: Icon, label }) => {
         const isActive =
           href === "/dashboard"
@@ -22,17 +21,15 @@ export default function SidebarNav({ role }: { role: Role }) {
           <Link
             key={href}
             href={href}
-            className={[
-              "flex items-center gap-3 px-4 py-2.5 text-sm rounded-sm transition-all duration-150",
-              "border-l-2",
+            className={`flex items-center gap-3.5 px-4 py-3 text-sm rounded-xl font-bold transition-all ${
               isActive
-                ? "border-l-primary bg-background text-text font-medium"
-                : "border-l-transparent text-text-muted hover:text-text hover:bg-background",
-            ].join(" ")}
+                ? "bg-stone-100 text-slate-950 shadow-md"
+                : "text-slate-400 hover:text-slate-100 hover:bg-slate-900"
+            }`}
           >
             <Icon
-              size={15}
-              strokeWidth={isActive ? 2 : 1.5}
+              size={18}
+              strokeWidth={isActive ? 2.5 : 2}
               className="shrink-0"
             />
             <span>{label}</span>
@@ -40,16 +37,19 @@ export default function SidebarNav({ role }: { role: Role }) {
         )
       })}
 
-      <button
-        onClick={async () => {
-          await logoutAction()
-        }}
-        className="flex items-center gap-3 px-4 py-2.5 text-sm rounded-sm transition-all duration-150 border-l-2 border-l-transparent text-text-muted hover:text-danger hover:bg-background w-full text-left"
-        style={{ background: "none", cursor: "pointer", border: "none" }}
-      >
-        <LogOut size={15} strokeWidth={1.5} className="shrink-0" />
-        <span>Cerrar sesión</span>
-      </button>
+      <div className="mt-auto pt-4 border-t border-slate-800/80">
+        <button
+          onClick={async () => {
+            await logoutAction()
+          }}
+          className="flex items-center gap-3.5 px-4 py-3 text-sm font-bold rounded-xl text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 w-full text-left transition-all"
+        >
+          <LogOut size={18} strokeWidth={2} className="shrink-0" />
+          <span>Cerrar sesión</span>
+        </button>
+      </div>
     </nav>
   )
 }
+
+

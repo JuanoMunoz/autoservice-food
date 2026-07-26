@@ -3,10 +3,13 @@
 @theme {
   --font-archivo: var(--font-archivo);
   --font-galindo: var(--font-galindo);
+  --font-saira: var(--font-saira);
 
   --color-primary: #125af5;
   --color-primary-hover: #0d47c7;
-  --color-background: #F5F5F5;
+  --color-secondary: #f0a71f;
+  --color-secondary-hover: #d99114;
+  --color-background: #ffffff;
   --color-surface: #ffffff;
   --color-text: #272635;
   --color-text-muted: #7c7c7c;
@@ -22,6 +25,10 @@
   box-sizing: border-box;
 }
 
+
+@import "uploadthing/tw/v4";
+@source "../node_modules/@uploadthing/react/dist";
+
 body {
   background-color: var(--color-background);
   color: var(--color-text);
@@ -30,6 +37,24 @@ body {
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.5;
 }
+
+/* Fix mobile touch/tap responsiveness & eliminate 300ms tap delay */
+button,
+[role="button"],
+a,
+input[type="submit"],
+input[type="button"],
+.cursor-pointer {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+a,
+button {
+  -webkit-user-drag: none;
+}
+
 
 ::-webkit-scrollbar {
   width: 4px;

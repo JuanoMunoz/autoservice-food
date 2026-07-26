@@ -33,7 +33,7 @@ export default function LoginForm() {
     background: "var(--color-surface)",
     color: "var(--color-text)",
     border: "1px solid var(--color-border)",
-    borderRadius: "4px",
+    borderRadius: "0px",
     outline: "none",
     transition: "border-color 150ms",
     fontFamily: "inherit",
@@ -116,8 +116,8 @@ export default function LoginForm() {
         style={{
           background: loading
             ? "var(--color-border)"
-            : "var(--color-text)",
-          color: "var(--color-surface)",
+            : "var(--color-primary)",
+          color: "#ffffff",
           cursor: loading ? "not-allowed" : "pointer",
           border: "none",
         }}

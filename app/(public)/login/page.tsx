@@ -1,78 +1,69 @@
-import { checkSession } from "@/utils/auth";
+import { checkSession } from "@/utils/auth"
 import LoginForm from "./_components/login-form"
 import { redirect } from "next/navigation"
+import Image from "next/image"
+
+export const metadata = {
+  title: "Iniciar Sesión | CheesePapas Admin",
+  description: "Accede al panel de administración y cocina de CheesePapas.",
+}
 
 export default async function LoginPage() {
   const session = await checkSession()
-  if (session) redirect("/event")
+  if (session) redirect("/dashboard")
+
   return (
-    <main className="flex min-h-dvh">
-      {/* Panel izquierdo — branding (solo desktop) */}
-      <aside
-        className="hidden lg:flex flex-col justify-between w-80 shrink-0 p-10"
-        style={{
-          background: "var(--color-surface)",
-          borderRight: "1px solid var(--color-border)",
-        }}
-      >
+    <main className="flex min-h-dvh bg-white text-slate-900 font-sans">
+      {/* Panel izquierdo — Branding & Logo */}
+      <aside className="hidden lg:flex flex-col justify-between w-96 shrink-0 p-10 bg-slate-50 border-r border-slate-200">
         <div>
-          <span
-            className="text-xl font-bold"
-            style={{ fontFamily: "var(--font-galindo)" }}
-          >
-            <span style={{ color: "var(--color-text)" }}>SKELETON</span>
-            <span style={{ color: "var(--color-primary)" }}>.app</span>
-          </span>
+          <div className="flex items-center gap-3">
+            <Image
+              src="/logo-cheesepapas.webp"
+              alt="CheesePapas Logo"
+              width={56}
+              height={56}
+              className="rounded-none object-cover shadow-sm border border-slate-200"
+            />
+            <span className="text-2xl font-saira font-extrabold text-slate-900 tracking-wide">
+              Cheese<span className="text-secondary">Papas</span>
+            </span>
+          </div>
         </div>
-        <div>
-          <p
-            className="text-xs uppercase tracking-widest mb-2"
-            style={{ color: "var(--color-text-muted)" }}
-          >
-            Pon tu texto aquí
-          </p>
-          <p
-            className="text-2xl font-semibold leading-snug"
-            style={{ color: "var(--color-text)" }}
-          >
-            Registra asistencia.{" "}
-            <span style={{ color: "var(--color-primary)" }}>Sin fricción.</span>
+
+        <div className="space-y-3">
+          <p className="text-3xl font-black leading-tight text-slate-900">
+            Gestión de Pedidos & Cocina.{' '}
+            <span className="text-secondary block">Sin fricción.</span>
           </p>
         </div>
-        <p
-          className="text-xs"
-          style={{ color: "var(--color-text-muted)" }}
-        >
-          © 2026 Skeleton.app
+
+        <p className="text-xs text-slate-400 font-medium">
+          © {new Date().getFullYear()} <span className="font-saira font-extrabold">Cheese<span className="text-secondary">Papas</span></span>. Todos los derechos reservados.
         </p>
       </aside>
 
-      {/* Panel derecho — formulario */}
-      <section className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-sm">
-          {/* Logo mobile */}
-          <div className="lg:hidden mb-8">
-            <span
-              className="text-xl font-bold"
-              style={{ fontFamily: "var(--font-galindo)" }}
-            >
-              <span style={{ color: "var(--color-text)" }}>Skeleton</span>
-              <span style={{ color: "var(--color-primary)" }}>.app</span>
-            </span>
+      {/* Panel derecho — Formulario */}
+      <section className="flex-1 flex items-center justify-center p-6 bg-white">
+        <div className="w-full max-w-sm space-y-6 bg-white border border-slate-200 p-8 rounded-none shadow-sm">
+          {/* Header Mobile / Brand Header */}
+          <div className="flex flex-col items-center text-center space-y-3">
+            <Image
+              src="/logo-cheesepapas.webp"
+              alt="CheesePapas Logo"
+              width={72}
+              height={76}
+              className="rounded-none object-cover shadow-sm border border-slate-200"
+            />
+            <div className="space-y-1">
+              <h1 className="text-2xl font-saira font-extrabold text-slate-900 tracking-tight">
+                Cheese<span className="text-secondary">Papas</span> Admin
+              </h1>
+              <p className="text-xs text-slate-500 font-medium">
+                Ingresa tus credenciales de administración.
+              </p>
+            </div>
           </div>
-
-          <h1
-            className="text-xl font-semibold mb-1"
-            style={{ color: "var(--color-text)" }}
-          >
-            Iniciar sesión
-          </h1>
-          <p
-            className="text-sm mb-8"
-            style={{ color: "var(--color-text-muted)" }}
-          >
-            Ingresa tus credenciales para continuar.
-          </p>
 
           <LoginForm />
         </div>
