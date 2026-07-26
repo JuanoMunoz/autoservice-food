@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { cancelOrder } from '@/app/(public)/order/actions'
+import { cancelOrder, getOrderDetail } from '@/app/(public)/order/actions'
 import { formatCurrency } from '@/utils/cartStorage'
 import { OrderStatus, OrderResponse } from '@/types/Order'
 import { OrderStatusBadge, OrderTimeline } from '@/app/(public)/order/_components/order-status'
@@ -22,35 +22,32 @@ export default function ConfirmationClient({ initialOrder }: ConfirmationClientP
     const [showCancelModal, setShowCancelModal] = useState(false)
     const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-    // Listen to SSE live order updates from dashboard
+    // Poll order updates periodically
     useEffect(() => {
-        const eventSource = new EventSource('/api/events')
+        if (order.status === 'COMPLETED' || order.status === 'CANCELLED') {
+            return
+        }
 
-        const handleUpdate = (event: MessageEvent) => {
+        let isMounted = true
+
+        const pollOrderStatus = async () => {
             try {
-                const data = JSON.parse(event.data)
-                const updatedId = data.id || data.order?.id
-                const newStatus = data.status || data.order?.status
-
-                if (updatedId === order.id && newStatus) {
-                    setOrder((prev) => ({
-                        ...prev,
-                        ...(data.order || {}),
-                        status: newStatus as OrderStatus,
-                    }))
+                const freshOrder = await getOrderDetail(order.id)
+                if (isMounted && freshOrder) {
+                    setOrder(freshOrder)
                 }
             } catch (err) {
-                console.error('Error parsing SSE order update event:', err)
+                console.error('Error polling order status:', err)
             }
         }
 
-        eventSource.addEventListener('order-update', handleUpdate)
-        eventSource.addEventListener('order-updated', handleUpdate)
+        const interval = setInterval(pollOrderStatus, 3000)
 
         return () => {
-            eventSource.close()
+            isMounted = false
+            clearInterval(interval)
         }
-    }, [order.id])
+    }, [order.id, order.status])
 
     const handleConfirmCancel = async () => {
         setIsCanceling(true)

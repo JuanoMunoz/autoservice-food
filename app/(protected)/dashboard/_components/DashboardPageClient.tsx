@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { OrderResponse, OrderStatus } from '@/types/Order'
-import { updateOrderStatus, cancelOrder } from '@/app/(public)/order/actions'
+import { updateOrderStatus, cancelOrder, getAllActiveOrders } from '@/app/(public)/order/actions'
 import { formatCurrency } from '@/utils/cartStorage'
 import { usePrinter } from '@/app/_hooks/use-printer'
 import {
@@ -76,62 +76,48 @@ export default function DashboardPageClient({ initialOrders }: DashboardPageClie
         return () => clearInterval(interval)
     }, [])
 
-    // SSE Connection Handler
+    // Polling Handler for Active Orders
     useEffect(() => {
-        const eventSource = new EventSource('/api/events')
+        let isMounted = true
 
-        eventSource.onopen = () => {
-            setIsConnected(true)
-        }
-
-        eventSource.onerror = () => {
-            setIsConnected(false)
-        }
-
-        // Listen for order-created events
-        eventSource.addEventListener('order-created', (event: MessageEvent) => {
+        const fetchActiveOrders = async () => {
             try {
-                const newOrder: OrderResponse = JSON.parse(event.data)
-                setOrders((prev) => {
-                    const exists = prev.some((o) => o.id === newOrder.id)
-                    if (exists) return prev
-                    return [...prev, newOrder].sort(
-                        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-                    )
-                })
-                playNotificationSound()
+                const activeOrders = await getAllActiveOrders()
+                if (!isMounted) return
 
-                // Auto-print invoice if enabled
-                if (autoPrintRef.current) {
-                    setInvoiceModalOrder(newOrder)
-                    setTimeout(() => {
-                        print()
-                    }, 300)
-                }
-            } catch (e) {
-                console.error('Error parsing order-created event:', e)
-            }
-        })
+                setIsConnected(true)
 
-        // Listen for order-updated events
-        eventSource.addEventListener('order-updated', (event: MessageEvent) => {
-            try {
-                const updatedOrder: OrderResponse = JSON.parse(event.data)
                 setOrders((prev) => {
-                    if (updatedOrder.status === 'COMPLETED' || updatedOrder.status === 'CANCELLED') {
-                        return prev.filter((o) => o.id !== updatedOrder.id)
+                    const prevIds = new Set(prev.map((o) => o.id))
+                    const brandNewOrders = activeOrders.filter((o) => !prevIds.has(o.id))
+
+                    if (brandNewOrders.length > 0 && prev.length > 0) {
+                        playNotificationSound()
+
+                        // Auto-print invoice if enabled
+                        if (autoPrintRef.current) {
+                            const latestNewOrder = brandNewOrders[brandNewOrders.length - 1]
+                            setInvoiceModalOrder(latestNewOrder)
+                            setTimeout(() => {
+                                print()
+                            }, 300)
+                        }
                     }
-                    return prev
-                        .map((o) => (o.id === updatedOrder.id ? updatedOrder : o))
-                        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+
+                    return activeOrders
                 })
-            } catch (e) {
-                console.error('Error parsing order-updated event:', e)
+            } catch (err) {
+                console.error('Error polling active orders:', err)
+                if (isMounted) setIsConnected(false)
             }
-        })
+        }
+
+        // Poll every 3 seconds
+        const interval = setInterval(fetchActiveOrders, 3000)
 
         return () => {
-            eventSource.close()
+            isMounted = false
+            clearInterval(interval)
         }
     }, [playNotificationSound, print])
 
@@ -189,7 +175,7 @@ export default function DashboardPageClient({ initialOrders }: DashboardPageClie
                 <div className="flex items-center gap-2">
                     <span className={`w-3 h-3 rounded-full ${isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'}`} />
                     <span className="text-xs font-bold text-slate-300">
-                        {isConnected ? 'Cocina en Línea (SSE Conectado)' : 'Reconectando a cocina...'}
+                        {isConnected ? 'Cocina en Línea (Polling Activo)' : 'Reconectando a cocina...'}
                     </span>
                 </div>
 

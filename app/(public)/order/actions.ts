@@ -3,7 +3,6 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/lib/generated/prisma/client'
 import { OrderDetails, OrderResponse, OrderStatus } from '@/types/Order'
-import { orderEventEmitter } from '@/lib/events'
 
 export async function getProducts() {
     try {
@@ -153,14 +152,6 @@ export async function createOrder(details: OrderDetails): Promise<OrderResponse>
         })
 
         const fullOrder = await getOrderDetail(order.id)
-
-        // Emit 'order-created' event to SSE subscribers
-        try {
-            orderEventEmitter.emit('order-created', fullOrder)
-        } catch (evtErr) {
-            console.error('Error emitting order-created event:', evtErr)
-        }
-
         return fullOrder
     } catch (error) {
         console.error('Error creating order:', error)
@@ -345,14 +336,6 @@ export async function updateOrderStatus(orderId: number, status: OrderStatus): P
         })
 
         const updated = await getOrderDetail(orderId)
-
-        try {
-            orderEventEmitter.emit('order-updated', updated)
-            orderEventEmitter.emit('order-update', { id: updated.id, status: updated.status, order: updated })
-        } catch (evtErr) {
-            console.error('Error emitting order-updated event:', evtErr)
-        }
-
         return updated
     } catch (error) {
         console.error('Error updating order status:', error)

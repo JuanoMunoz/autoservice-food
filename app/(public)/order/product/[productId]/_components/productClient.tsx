@@ -220,14 +220,30 @@ export default function ProductClient({ initialProduct, initialSauces }: Product
                                                 : 'bg-white border-slate-200 hover:border-slate-300'
                                         }`}
                                     >
-                                        <div className="flex-1 space-y-0.5">
-                                            <p className="font-extrabold text-sm text-slate-900">{pi.ingredient.name}</p>
-                                            <p className="text-xs text-amber-700 font-extrabold">
-                                                +{formatCurrency(ingPrice)} c/u
-                                            </p>
-                                            {pi.ingredient.description && (
-                                                <p className="text-xs text-slate-500 line-clamp-1">{pi.ingredient.description}</p>
-                                            )}
+                                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                                            <div className="relative w-14 h-14 bg-slate-50 border border-slate-200 rounded-sm overflow-hidden shrink-0 flex items-center justify-center p-1">
+                                                {pi.ingredient.imageRoute ? (
+                                                    <Image
+                                                        src={pi.ingredient.imageRoute}
+                                                        alt={pi.ingredient.name}
+                                                        fill
+                                                        unoptimized
+                                                        className="object-contain"
+                                                    />
+                                                ) : (
+                                                    <Utensils className="w-6 h-6 text-slate-300 stroke-1" />
+                                                )}
+                                            </div>
+
+                                            <div className="space-y-0.5 flex-1 min-w-0">
+                                                <p className="font-extrabold text-sm text-slate-900 truncate">{pi.ingredient.name}</p>
+                                                <p className="text-xs text-amber-700 font-extrabold">
+                                                    +{formatCurrency(ingPrice)} c/u
+                                                </p>
+                                                {pi.ingredient.description && (
+                                                    <p className="text-xs text-slate-500 line-clamp-1">{pi.ingredient.description}</p>
+                                                )}
+                                            </div>
                                         </div>
 
                                         {currentQty === 0 ? (

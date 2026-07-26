@@ -1,4 +1,4 @@
-import { getProductDetail, getSauces } from '@/app/(public)/order/actions'
+import { getProductDetail, getSauces, getIngredients } from '@/app/(public)/order/actions'
 import { notFound } from 'next/navigation'
 import ProductClient from './_components/productClient'
 
@@ -21,10 +21,29 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     const { productId } = await params
 
     try {
-        const [product, sauces] = await Promise.all([
+        const [product, sauces, allIngredients] = await Promise.all([
             getProductDetail(productId),
             getSauces(),
+            getIngredients(),
         ])
+
+        const ingredientsMap = new Map<string, any>()
+
+        // 1. Add ingredients assigned to this product
+        if (product.productIngredients) {
+            for (const pi of product.productIngredients) {
+                if (pi.ingredient) {
+                    ingredientsMap.set(pi.ingredient.id, pi.ingredient)
+                }
+            }
+        }
+
+        // 2. Add all global ingredients marked with isTopping === true
+        for (const ing of allIngredients) {
+            if (ing.isTopping && !ingredientsMap.has(ing.id)) {
+                ingredientsMap.set(ing.id, ing)
+            }
+        }
 
         const formattedProduct = {
             id: product.id,
@@ -32,15 +51,15 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
             description: product.description,
             imageRoute: product.imageRoute || undefined,
             price: product.price.toString(),
-            productIngredients: product.productIngredients.map((pi) => ({
+            productIngredients: Array.from(ingredientsMap.values()).map((ing) => ({
                 ingredient: {
-                    id: pi.ingredient.id,
-                    name: pi.ingredient.name,
-                    price: pi.ingredient.price.toString(),
-                    isTopping: pi.ingredient.isTopping,
-                    type: pi.ingredient.type,
-                    description: pi.ingredient.description,
-                    imageRoute: pi.ingredient.imageRoute || undefined,
+                    id: ing.id,
+                    name: ing.name,
+                    price: ing.price.toString(),
+                    isTopping: Boolean(ing.isTopping),
+                    type: ing.type,
+                    description: ing.description,
+                    imageRoute: ing.imageRoute || undefined,
                 },
             })),
         }
@@ -61,3 +80,4 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         notFound()
     }
 }
+
