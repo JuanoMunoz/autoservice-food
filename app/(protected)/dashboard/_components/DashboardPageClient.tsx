@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState, useRef, useCallback } from 'react'
+import { toast } from 'sonner'
 import { OrderResponse, OrderStatus } from '@/types/Order'
-import { updateOrderStatus, cancelOrder, getAllActiveOrders } from '@/app/(public)/order/actions'
+import { updateOrderStatus, cancelOrder, getAllActiveOrders, getOrderDetail } from '@/app/(public)/order/actions'
 import { formatCurrency } from '@/utils/cartStorage'
 import { usePrinter } from '@/app/_hooks/use-printer'
 import {
@@ -43,30 +44,105 @@ export default function DashboardPageClient({ initialOrders }: DashboardPageClie
         autoPrintRef.current = autoPrint
     }, [autoPrint])
 
-    // Web Audio API for kitchen chime
-    const playNotificationSound = useCallback(() => {
-        if (!soundEnabled) return
-        try {
-            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
-            const osc = ctx.createOscillator()
-            const gain = ctx.createGain()
-
-            osc.type = 'sine'
-            osc.frequency.setValueAtTime(587.33, ctx.currentTime) // D5
-            osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15) // A5
-
-            gain.gain.setValueAtTime(0.3, ctx.currentTime)
-            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4)
-
-            osc.connect(gain)
-            gain.connect(ctx.destination)
-
-            osc.start()
-            osc.stop(ctx.currentTime + 0.4)
-        } catch {
-            // Audio context failed or blocked by browser policy
-        }
+    const soundEnabledRef = useRef(soundEnabled)
+    useEffect(() => {
+        soundEnabledRef.current = soundEnabled
     }, [soundEnabled])
+
+    // Refs for order tracking and side effects
+    const isFirstPollRef = useRef(true)
+    const knownActiveOrdersMapRef = useRef<Map<number, OrderResponse>>(
+        new Map(initialOrders.map((o) => [o.id, o]))
+    )
+    const locallyProcessedIdsRef = useRef<Set<number>>(new Set())
+    const pendingAutoPrintOrderRef = useRef<OrderResponse | null>(null)
+
+    // User interaction listener to unlock Web Audio API Context
+    useEffect(() => {
+        const unlockAudio = () => {
+            try {
+                const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
+                if (AudioCtx) {
+                    const dummy = new AudioCtx()
+                    if (dummy.state === 'suspended') {
+                        dummy.resume()
+                    }
+                }
+            } catch { }
+            window.removeEventListener('click', unlockAudio)
+            window.removeEventListener('touchstart', unlockAudio)
+            window.removeEventListener('keydown', unlockAudio)
+        }
+
+        window.addEventListener('click', unlockAudio)
+        window.addEventListener('touchstart', unlockAudio)
+        window.addEventListener('keydown', unlockAudio)
+
+        return () => {
+            window.removeEventListener('click', unlockAudio)
+            window.removeEventListener('touchstart', unlockAudio)
+            window.removeEventListener('keydown', unlockAudio)
+        }
+    }, [])
+
+    // Web Audio API for kitchen chime (D5 -> A5)
+    const playNotificationSound = useCallback(() => {
+        if (!soundEnabledRef.current) return
+        try {
+            const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
+            if (!AudioCtx) return
+            const ctx = new AudioCtx()
+
+            const playTones = () => {
+                const now = ctx.currentTime
+
+                // First tone (D5 - 587.33Hz)
+                const osc1 = ctx.createOscillator()
+                const gain1 = ctx.createGain()
+                osc1.type = 'sine'
+                osc1.frequency.setValueAtTime(587.33, now)
+                gain1.gain.setValueAtTime(0.4, now)
+                gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.25)
+                osc1.connect(gain1)
+                gain1.connect(ctx.destination)
+                osc1.start(now)
+                osc1.stop(now + 0.25)
+
+                // Second tone (A5 - 880Hz)
+                const osc2 = ctx.createOscillator()
+                const gain2 = ctx.createGain()
+                osc2.type = 'sine'
+                osc2.frequency.setValueAtTime(880, now + 0.15)
+                gain2.gain.setValueAtTime(0.4, now + 0.15)
+                gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.5)
+                osc2.connect(gain2)
+                gain2.connect(ctx.destination)
+                osc2.start(now + 0.15)
+                osc2.stop(now + 0.5)
+            }
+
+            if (ctx.state === 'suspended') {
+                ctx.resume().then(() => {
+                    playTones()
+                }).catch(() => { })
+            } else {
+                playTones()
+            }
+        } catch (e) {
+            console.error('Error playing notification sound:', e)
+        }
+    }, [])
+
+    // Effect to trigger print after invoice modal renders
+    useEffect(() => {
+        if (invoiceModalOrder && pendingAutoPrintOrderRef.current?.id === invoiceModalOrder.id) {
+            pendingAutoPrintOrderRef.current = null
+            const timer = setTimeout(() => {
+                print()
+            }, 400)
+            return () => clearTimeout(timer)
+        }
+    }, [invoiceModalOrder, print])
 
     // Live Timer Ticker every second for KDS elapsed timers
     useEffect(() => {
@@ -87,30 +163,85 @@ export default function DashboardPageClient({ initialOrders }: DashboardPageClie
 
                 setIsConnected(true)
 
-                setOrders((prev) => {
-                    const prevIds = new Set(prev.map((o) => o.id))
-                    const brandNewOrders = activeOrders.filter((o) => !prevIds.has(o.id))
+                const currentActiveMap = new Map<number, OrderResponse>(
+                    activeOrders.map((o) => [o.id, o])
+                )
 
-                    if (brandNewOrders.length > 0 && prev.length > 0) {
-                        playNotificationSound()
+                // On initial poll right after mount, initialize map without firing alerts
+                if (isFirstPollRef.current) {
+                    isFirstPollRef.current = false
+                    knownActiveOrdersMapRef.current = currentActiveMap
+                    setOrders(activeOrders)
+                    return
+                }
 
-                        // Auto-print invoice if enabled
-                        if (autoPrintRef.current) {
-                            const latestNewOrder = brandNewOrders[brandNewOrders.length - 1]
-                            setInvoiceModalOrder(latestNewOrder)
-                            setTimeout(() => {
-                                print()
-                            }, 300)
+                // 1. Detect Brand New Orders
+                const prevMap = knownActiveOrdersMapRef.current
+                const brandNewOrders: OrderResponse[] = []
+                for (const order of activeOrders) {
+                    if (!prevMap.has(order.id)) {
+                        brandNewOrders.push(order)
+                    }
+                }
+
+                // 2. Detect Missing Active Orders (Check for external cancellations)
+                const missingOrders: OrderResponse[] = []
+                for (const [prevId, prevOrder] of prevMap.entries()) {
+                    if (!currentActiveMap.has(prevId)) {
+                        missingOrders.push(prevOrder)
+                    }
+                }
+
+                // Update tracked orders and state
+                knownActiveOrdersMapRef.current = currentActiveMap
+                setOrders(activeOrders)
+
+                // Trigger sound, toast, and auto-print for new orders
+                if (brandNewOrders.length > 0) {
+                    playNotificationSound()
+
+                    const latestNewOrder = brandNewOrders[brandNewOrders.length - 1]
+
+                    toast.success(`NUEVO PEDIDO #${latestNewOrder.id}`, {
+                        description: `Cliente: ${latestNewOrder.buyerName || 'Cliente'} — Total: ${formatCurrency(parseFloat(latestNewOrder.total))}`,
+                        duration: 5000,
+                    })
+
+                    if (autoPrintRef.current) {
+                        pendingAutoPrintOrderRef.current = latestNewOrder
+                        setInvoiceModalOrder(latestNewOrder)
+                    }
+                }
+
+                // Handle Missing Orders (Check if customer cancelled)
+                if (missingOrders.length > 0) {
+                    for (const missingOrder of missingOrders) {
+                        if (locallyProcessedIdsRef.current.has(missingOrder.id)) {
+                            locallyProcessedIdsRef.current.delete(missingOrder.id)
+                            continue
+                        }
+
+                        try {
+                            const freshOrder = await getOrderDetail(missingOrder.id)
+                            if (freshOrder && freshOrder.status === 'CANCELLED') {
+                                toast.error(`⚠️ ORDEN #${missingOrder.id} CANCELADA`, {
+                                    description: `El cliente ${freshOrder.buyerName || 'Anónimo'} ha cancelado este pedido desde la app.`,
+                                    duration: 8000,
+                                })
+                            }
+                        } catch (err) {
+                            console.error('Error verifying missing order status:', err)
                         }
                     }
-
-                    return activeOrders
-                })
+                }
             } catch (err) {
                 console.error('Error polling active orders:', err)
                 if (isMounted) setIsConnected(false)
             }
         }
+
+        // Initial fetch poll execution
+        fetchActiveOrders()
 
         // Poll every 3 seconds
         const interval = setInterval(fetchActiveOrders, 3000)
@@ -119,7 +250,7 @@ export default function DashboardPageClient({ initialOrders }: DashboardPageClie
             isMounted = false
             clearInterval(interval)
         }
-    }, [playNotificationSound, print])
+    }, [playNotificationSound])
 
     // State Transition Handlers
     const handleNextStage = async (order: OrderResponse) => {
@@ -130,10 +261,15 @@ export default function DashboardPageClient({ initialOrders }: DashboardPageClie
         else if (order.status === 'PREPARING') nextStatus = 'DELIVERING'
         else if (order.status === 'DELIVERING') nextStatus = 'COMPLETED'
 
+        if (nextStatus === 'COMPLETED') {
+            locallyProcessedIdsRef.current.add(order.id)
+        }
+
         try {
             await updateOrderStatus(order.id, nextStatus)
         } catch (err) {
             console.error('Error advancing order stage:', err)
+            locallyProcessedIdsRef.current.delete(order.id)
         } finally {
             setIsUpdatingId(null)
         }
@@ -141,12 +277,18 @@ export default function DashboardPageClient({ initialOrders }: DashboardPageClie
 
     const handleConfirmCancel = async () => {
         if (!cancelModalOrder) return
-        setIsUpdatingId(cancelModalOrder.id)
+        const orderId = cancelModalOrder.id
+        setIsUpdatingId(orderId)
+        locallyProcessedIdsRef.current.add(orderId)
+
         try {
-            await cancelOrder(cancelModalOrder.id)
+            await cancelOrder(orderId)
+            toast.info(`Orden #${orderId} cancelada por la cocina`)
             setCancelModalOrder(null)
         } catch (err) {
             console.error('Error canceling order:', err)
+            locallyProcessedIdsRef.current.delete(orderId)
+            toast.error(`Error al cancelar la orden #${orderId}`)
         } finally {
             setIsUpdatingId(null)
         }
@@ -171,22 +313,21 @@ export default function DashboardPageClient({ initialOrders }: DashboardPageClie
     return (
         <div className="space-y-6 font-sans select-none print:p-0">
             {/* Header Controls (Hidden on print) */}
-            <div className="p-4 flex flex-wrap items-center justify-between gap-4 bg-slate-900/60 border border-slate-800 rounded-md print:hidden">
+            <div className="p-4 flex flex-wrap items-center justify-between gap-4  rounded-md print:hidden">
                 <div className="flex items-center gap-2">
                     <span className={`w-3 h-3 rounded-full ${isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'}`} />
                     <span className="text-xs font-bold text-slate-300">
-                        {isConnected ? 'Cocina en Línea (Polling Activo)' : 'Reconectando a cocina...'}
+                        {isConnected ? 'Cocina en Línea' : 'Reconectando a cocina...'}
                     </span>
                 </div>
 
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => setAutoPrint(!autoPrint)}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-colors cursor-pointer ${
-                            autoPrint
-                                ? 'bg-amber-500 text-slate-950 font-black border-amber-400 shadow-sm'
-                                : 'bg-slate-900 text-slate-500 border-slate-800 hover:bg-slate-850'
-                        }`}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-colors cursor-pointer ${autoPrint
+                            ? 'bg-amber-500 text-white font-black border-amber-400 shadow-sm'
+                            : 'bg-slate-900 text-slate-500 border-slate-800 hover:bg-slate-850'
+                            }`}
                         title="Imprimir automáticamente la factura cuando llegue un nuevo pedido"
                     >
                         <Printer className="w-4 h-4" />
@@ -195,11 +336,10 @@ export default function DashboardPageClient({ initialOrders }: DashboardPageClie
 
                     <button
                         onClick={() => setSoundEnabled(!soundEnabled)}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-colors cursor-pointer ${
-                            soundEnabled
-                                ? 'bg-slate-800 text-stone-200 border-slate-700 hover:bg-slate-700'
-                                : 'bg-slate-900 text-slate-500 border-slate-800 hover:bg-slate-850'
-                        }`}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-colors cursor-pointer ${soundEnabled
+                            ? 'bg-slate-800 text-stone-200 border-slate-700 hover:bg-slate-700'
+                            : 'bg-slate-900 text-slate-500 border-slate-800 hover:bg-slate-850'
+                            }`}
                         title="Alternar sonido de nuevos pedidos"
                     >
                         {soundEnabled ? <Volume2 className="w-4 h-4 text-stone-200" /> : <VolumeX className="w-4 h-4" />}
@@ -541,13 +681,12 @@ function KDSTicketCard({
 
     return (
         <div
-            className={`bg-slate-900 border rounded-sm p-4 shadow-lg space-y-3.5 transition-all relative overflow-hidden ${
-                isLate
-                    ? 'border-rose-500/80 ring-2 ring-rose-500/20'
-                    : isWarning
-                        ? 'border-amber-500/80'
-                        : 'border-slate-800 hover:border-slate-700'
-            }`}
+            className={`bg-slate-900 border rounded-sm p-4 shadow-lg space-y-3.5 transition-all relative overflow-hidden ${isLate
+                ? 'border-rose-500/80 ring-2 ring-rose-500/20'
+                : isWarning
+                    ? 'border-amber-500/80'
+                    : 'border-slate-800 hover:border-slate-700'
+                }`}
         >
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
                 <div>
@@ -567,13 +706,12 @@ function KDSTicketCard({
                 <div className="flex flex-col items-end gap-1">
                     {/* Live Timer Badge */}
                     <div
-                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black ${
-                            isLate
-                                ? 'bg-rose-950 text-rose-300 border border-rose-800/60 animate-pulse'
-                                : isWarning
-                                    ? 'bg-amber-950 text-amber-300 border border-amber-800/60'
-                                    : 'bg-slate-800 text-stone-200 border border-slate-700'
-                        }`}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black ${isLate
+                            ? 'bg-rose-950 text-rose-300 border border-rose-800/60 animate-pulse'
+                            : isWarning
+                                ? 'bg-amber-950 text-amber-300 border border-amber-800/60'
+                                : 'bg-slate-800 text-stone-200 border border-slate-700'
+                            }`}
                     >
                         <Clock className="w-3.5 h-3.5" />
                         <span>{elapsed.formatted} min</span>
