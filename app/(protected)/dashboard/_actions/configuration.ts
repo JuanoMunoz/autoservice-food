@@ -3,11 +3,12 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole, runWithAuditContext } from "@/utils/auth";
 import { revalidatePath } from "next/cache";
+import { serializePrisma } from "@/utils/serializePrisma";
 
 export async function getConfiguration() {
     await requireRole(["SUPER_ADMIN", "ADMIN"]);
 
-    return prisma.configuration.findMany({
+    const result = await prisma.configuration.findMany({
         orderBy: { createdAt: "desc" },
         include: {
             createdBy: {
@@ -18,6 +19,7 @@ export async function getConfiguration() {
             },
         },
     });
+    return serializePrisma(result);
 }
 
 export async function createConfiguration(data: { name: string; value: string }) {
@@ -38,7 +40,7 @@ export async function createConfiguration(data: { name: string; value: string })
     });
 
     revalidatePath("/dashboard/configuracion");
-    return result;
+    return serializePrisma(result);
 }
 
 export async function updateConfiguration(id: string, data: { name: string; value: string }) {
@@ -59,7 +61,7 @@ export async function updateConfiguration(id: string, data: { name: string; valu
     });
 
     revalidatePath("/dashboard/configuracion");
-    return result;
+    return serializePrisma(result);
 }
 
 export async function deleteConfiguration(id: string) {
@@ -72,5 +74,5 @@ export async function deleteConfiguration(id: string) {
     });
 
     revalidatePath("/dashboard/configuracion");
-    return result;
+    return serializePrisma(result);
 }

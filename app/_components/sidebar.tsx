@@ -3,7 +3,7 @@ import { parseRoleAsName } from "@/utils/utils";
 import type { Role } from "@/types/User"
 import { UtensilsCrossed } from "lucide-react"
 
-export default function Sidebar({ session }: { session: { user: { name: string; role: string } } }) {
+export default function Sidebar({ session }: { session: any }) {
   const role = session.user.role as Role
   const roleName = parseRoleAsName(role)
   const userName = session.user.name || "Usuario"

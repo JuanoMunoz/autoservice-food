@@ -22,12 +22,35 @@ const galindo = Galindo({
 })
 
 export const metadata: Metadata = {
-  title: "CheesePapas — Autoservicio de comida rápida",
+  title: {
+    default: "CheesePapas — Autoservicio de comida rápida",
+    template: "%s | CheesePapas",
+  },
   description: "CheesePapas Autoservicio de comida rápida. Realiza tu pedido a domicilio.",
+  applicationName: "CheesePapas Autoservicio",
+  keywords: ["CheesePapas", "comida rápida", "pedidos", "delivery", "autoservicio"],
+  authors: [{ name: "CheesePapas" }],
+  creator: "CheesePapas",
+  publisher: "CheesePapas",
+  category: "food",
   icons: {
     icon: '/logo-cheesepapas.webp',
     shortcut: '/logo-cheesepapas.webp',
     apple: '/logo-cheesepapas.webp',
+  },
+  openGraph: {
+    type: "website",
+    locale: "es_ES",
+    siteName: "CheesePapas",
+    title: "CheesePapas — Autoservicio de comida rápida",
+    description: "Realiza tu pedido de CheesePapas para comer en el local o recibirlo a domicilio.",
+    images: [{ url: "/logo-cheesepapas.webp", width: 512, height: 512, alt: "Logo de CheesePapas" }],
+  },
+  twitter: {
+    card: "summary",
+    title: "CheesePapas — Autoservicio de comida rápida",
+    description: "Realiza tu pedido de CheesePapas para comer en el local o recibirlo a domicilio.",
+    images: ["/logo-cheesepapas.webp"],
   },
 }
 

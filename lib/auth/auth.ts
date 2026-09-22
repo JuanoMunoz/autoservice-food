@@ -19,7 +19,7 @@ export const auth = betterAuth({
             }
         }
     },
-    experimental: { joins: true },
+    experimental: { joins: true } as any,
     emailAndPassword: { enabled: true, autoSignIn: false },
     plugins: [
         nextCookies()

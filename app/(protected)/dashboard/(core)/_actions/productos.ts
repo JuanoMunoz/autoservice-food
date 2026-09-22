@@ -3,11 +3,12 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole, runWithAuditContext } from "@/utils/auth";
 import { revalidatePath } from "next/cache";
+import { serializePrisma } from "@/utils/serializePrisma";
 
 export async function getProducts() {
   await requireRole(["SUPER_ADMIN", "ADMIN"]);
 
-  return prisma.products.findMany({
+  const result = await prisma.products.findMany({
     orderBy: { createdAt: "desc" },
     include: {
       createdBy: {
@@ -20,6 +21,7 @@ export async function getProducts() {
       },
     },
   });
+  return serializePrisma(result);
 }
 
 export async function createProduct(data: {
@@ -57,7 +59,7 @@ export async function createProduct(data: {
   });
 
   revalidatePath("/dashboard/productos");
-  return result;
+  return serializePrisma(result);
 }
 
 export async function updateProduct(
@@ -99,7 +101,7 @@ export async function updateProduct(
   });
 
   revalidatePath("/dashboard/productos");
-  return result;
+  return serializePrisma(result);
 }
 
 export async function deleteProduct(id: string) {
@@ -110,5 +112,5 @@ export async function deleteProduct(id: string) {
   });
 
   revalidatePath("/dashboard/productos");
-  return result;
+  return serializePrisma(result);
 }

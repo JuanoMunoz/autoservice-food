@@ -22,7 +22,7 @@ export default async function ProtectedLayout({
       </main>
 
       {/* Mobile bottom nav */}
-      <BottomNav role={session.user.role} />
+      <BottomNav role={(session.user as any).role} />
     </div>
   )
 }

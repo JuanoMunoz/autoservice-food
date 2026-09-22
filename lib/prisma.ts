@@ -102,7 +102,10 @@ function buildPrismaClient() {
     })
 }
 
-export const prisma = globalForPrisma.prisma ?? buildPrismaClient()
+const cachedPrisma = globalForPrisma.prisma
+const hasCurrentSchema = cachedPrisma && "table" in cachedPrisma
+
+export const prisma = hasCurrentSchema ? cachedPrisma : buildPrismaClient()
 
 if (process.env.NODE_ENV !== "production") {
     globalForPrisma.prisma = prisma

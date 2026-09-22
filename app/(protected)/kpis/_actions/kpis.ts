@@ -145,6 +145,7 @@ export async function getKPIData(): Promise<KPIData> {
   ] = await Promise.all([
     prisma.order.findMany({
       include: {
+        table: true,
         items: {
           include: {
             product: true,
@@ -251,7 +252,7 @@ export async function getKPIData(): Promise<KPIData> {
 
   // 7. Top Products (Comidas)
   const productMap = new Map<string, { name: string; imageRoute: string | null; price: number; totalQuantity: number; totalRevenue: number }>();
-  
+
   // 8. Top Drinks
   const drinkMap = new Map<string, { name: string; imageRoute: string | null; price: number; totalQuantity: number; totalRevenue: number }>();
 
@@ -373,11 +374,11 @@ export async function getKPIData(): Promise<KPIData> {
     dayBuckets[dayIdx].ordersCount += 1;
     dayBuckets[dayIdx].salesTotal += Number(order.total);
 
-    if (order.table !== null && order.table !== undefined) {
-      const existing = tableMap.get(order.table) || { ordersCount: 0, salesTotal: 0 };
+    if (order.table !== null) {
+      const existing = tableMap.get(order.table.number) || { ordersCount: 0, salesTotal: 0 };
       existing.ordersCount += 1;
       existing.salesTotal += Number(order.total);
-      tableMap.set(order.table, existing);
+      tableMap.set(order.table.number, existing);
     }
   }
 

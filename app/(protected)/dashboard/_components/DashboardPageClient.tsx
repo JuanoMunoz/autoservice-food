@@ -3,9 +3,13 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { toast } from 'sonner'
 import { OrderResponse, OrderStatus } from '@/types/Order'
+import type { AdminOrderCatalog } from '@/types/AdminOrder'
 import { updateOrderStatus, cancelOrder, getAllActiveOrders, getOrderDetail } from '@/app/(public)/order/actions'
 import { formatCurrency } from '@/utils/cartStorage'
 import { usePrinter } from '@/app/_hooks/use-printer'
+import CreateOrderModal from './CreateOrderModal'
+import SelectDriverModal from './SelectDriverModal'
+import { completeOrderWithDriver } from '../(core)/_actions/domiciliarios'
 import {
     Flame,
     CheckCircle2,
@@ -20,14 +24,16 @@ import {
     X,
     RefreshCw,
     Printer,
-    FileText
+    FileText,
+    UserPlus
 } from 'lucide-react'
 
 interface DashboardPageClientProps {
     initialOrders: OrderResponse[]
+    catalog: AdminOrderCatalog
 }
 
-export default function DashboardPageClient({ initialOrders }: DashboardPageClientProps) {
+export default function DashboardPageClient({ initialOrders, catalog }: DashboardPageClientProps) {
     const { print, isPrinting } = usePrinter()
 
     const [orders, setOrders] = useState<OrderResponse[]>(initialOrders)
@@ -37,7 +43,9 @@ export default function DashboardPageClient({ initialOrders }: DashboardPageClie
     const [updatingId, setIsUpdatingId] = useState<number | null>(null)
     const [cancelModalOrder, setCancelModalOrder] = useState<OrderResponse | null>(null)
     const [invoiceModalOrder, setInvoiceModalOrder] = useState<OrderResponse | null>(null)
-    const [now, setNow] = useState<number>(Date.now())
+    const [driverModalOrder, setDriverModalOrder] = useState<OrderResponse | null>(null)
+    const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false)
+    const [now, setNow] = useState<number>(() => Date.now())
 
     const autoPrintRef = useRef(autoPrint)
     useEffect(() => {
@@ -61,7 +69,7 @@ export default function DashboardPageClient({ initialOrders }: DashboardPageClie
     useEffect(() => {
         const unlockAudio = () => {
             try {
-                const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
+                const AudioCtx = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
                 if (AudioCtx) {
                     const dummy = new AudioCtx()
                     if (dummy.state === 'suspended') {
@@ -89,7 +97,7 @@ export default function DashboardPageClient({ initialOrders }: DashboardPageClie
     const playNotificationSound = useCallback(() => {
         if (!soundEnabledRef.current) return
         try {
-            const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
+            const AudioCtx = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
             if (!AudioCtx) return
             const ctx = new AudioCtx()
 
@@ -254,22 +262,40 @@ export default function DashboardPageClient({ initialOrders }: DashboardPageClie
 
     // State Transition Handlers
     const handleNextStage = async (order: OrderResponse) => {
+        if (order.status === 'DELIVERING') {
+            setDriverModalOrder(order)
+            return
+        }
+
         setIsUpdatingId(order.id)
         let nextStatus: OrderStatus = 'PREPARING'
 
         if (order.status === 'CREATED') nextStatus = 'PREPARING'
         else if (order.status === 'PREPARING') nextStatus = 'DELIVERING'
-        else if (order.status === 'DELIVERING') nextStatus = 'COMPLETED'
-
-        if (nextStatus === 'COMPLETED') {
-            locallyProcessedIdsRef.current.add(order.id)
-        }
 
         try {
             await updateOrderStatus(order.id, nextStatus)
         } catch (err) {
             console.error('Error advancing order stage:', err)
-            locallyProcessedIdsRef.current.delete(order.id)
+        } finally {
+            setIsUpdatingId(null)
+        }
+    }
+
+    const handleConfirmDriverSelect = async (driverId: string | null, notes?: string) => {
+        if (!driverModalOrder) return
+        const orderId = driverModalOrder.id
+        setIsUpdatingId(orderId)
+        locallyProcessedIdsRef.current.add(orderId)
+
+        try {
+            await completeOrderWithDriver(orderId, driverId, notes)
+            toast.success(`Orden #${orderId} completada exitosamente`)
+            setDriverModalOrder(null)
+        } catch (err) {
+            console.error('Error completing order with driver:', err)
+            locallyProcessedIdsRef.current.delete(orderId)
+            toast.error(`Error al finalizar la orden #${orderId}`)
         } finally {
             setIsUpdatingId(null)
         }
@@ -322,6 +348,15 @@ export default function DashboardPageClient({ initialOrders }: DashboardPageClie
                 </div>
 
                 <div className="flex items-center gap-3">
+                    <button
+                        type="button"
+                        onClick={() => setIsCreateOrderOpen(true)}
+                        className="flex items-center gap-2 rounded-xl border border-amber-400 bg-amber-500 px-3 py-1.5 text-xs font-black text-slate-950 transition-colors hover:bg-amber-300"
+                    >
+                        <UserPlus className="h-4 w-4" />
+                        Añadir orden
+                    </button>
+
                     <button
                         onClick={() => setAutoPrint(!autoPrint)}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-colors cursor-pointer ${autoPrint
@@ -530,7 +565,7 @@ export default function DashboardPageClient({ initialOrders }: DashboardPageClie
                                 Autoservicio de Comida Rápida
                             </p>
                             <p className="text-[11px] font-semibold text-slate-500">
-                                Tel: +57 300 123 4567
+                                Tel: +57 310 3967137
                             </p>
                             <div className="pt-2">
                                 <span className="inline-block bg-slate-900 text-white font-black text-xs px-3 py-1 rounded-sm uppercase tracking-widest">
@@ -559,6 +594,14 @@ export default function DashboardPageClient({ initialOrders }: DashboardPageClie
                                 <span className="text-slate-500 font-bold block uppercase text-[10px]">Tipo de Servicio</span>
                                 <span className="font-black text-slate-900">{invoiceModalOrder.onSite ? 'En el local (Para comer)' : 'A domicilio'}</span>
                             </div>
+                            {invoiceModalOrder.table && (
+                                <div>
+                                    <span className="text-slate-500 font-bold block uppercase text-[10px]">Mesa</span>
+                                    <span className="font-black text-slate-900">
+                                        {invoiceModalOrder.table.name || `Mesa ${invoiceModalOrder.table.number}`}
+                                    </span>
+                                </div>
+                            )}
                             {!invoiceModalOrder.onSite && invoiceModalOrder.address && (
                                 <div className="col-span-2 pt-1 border-t border-slate-100">
                                     <span className="text-slate-500 font-bold block uppercase text-[10px]">Dirección de Entrega</span>
@@ -648,6 +691,26 @@ export default function DashboardPageClient({ initialOrders }: DashboardPageClie
                     </div>
                 </div>
             )}
+
+            {isCreateOrderOpen && (
+                <CreateOrderModal
+                    catalog={catalog}
+                    onClose={() => setIsCreateOrderOpen(false)}
+                    onCreated={(order) => {
+                        setIsCreateOrderOpen(false)
+                        if (order.status === 'CREATED') {
+                            setOrders((current) => [order, ...current])
+                        }
+                    }}
+                />
+            )}
+
+            <SelectDriverModal
+                order={driverModalOrder}
+                isOpen={!!driverModalOrder}
+                onClose={() => setDriverModalOrder(null)}
+                onConfirm={handleConfirmDriverSelect}
+            />
         </div>
     )
 }
@@ -726,6 +789,11 @@ function KDSTicketCard({
                         ) : (
                             <span className="inline-flex items-center gap-1 bg-slate-800/80 text-stone-200 px-2 py-0.5 rounded-full border border-slate-700">
                                 <Truck className="w-3 h-3 text-stone-200" /> Delivery
+                            </span>
+                        )}
+                        {order.table && (
+                            <span className="inline-flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30 text-amber-300">
+                                Mesa {order.table.number}
                             </span>
                         )}
                     </div>

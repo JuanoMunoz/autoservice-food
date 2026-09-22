@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { useCart } from '@/app/_hooks/use-cart'
 import { formatCurrency, getCartFromStorage } from '@/utils/cartStorage'
 import { PaymentType } from '@/types/Order'
-import { createOrder, getDeliveryFee } from '@/app/(public)/order/actions'
+import { createOrder, getDeliveryFee, calculateDeliveryFee } from '@/app/(public)/order/actions'
+import { DeliveryFeeCalculationResult } from '@/types/Order'
 import { ArrowLeft, DollarSign, CreditCard, Send, MapPin, ShoppingBag, Check, Truck, X, Plus, Minus, Trash2, Map } from 'lucide-react'
 import LocationPickerModal from './LocationPickerModal'
 
@@ -31,6 +32,8 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
 
     const [isLoading, setIsLoading] = useState(false)
     const [deliveryFee, setDeliveryFee] = useState<number>(initialDeliveryFee)
+    const [feeInfo, setFeeInfo] = useState<DeliveryFeeCalculationResult | null>(null)
+    const [isCalculatingFee, setIsCalculatingFee] = useState(false)
     const [nameInput, setNameInput] = useState(cart.buyerName || '')
     const [phoneInput, setPhoneInput] = useState(cart.buyerPhone || '')
     const [emailInput, setEmailInput] = useState(cart.buyerEmail || '')
@@ -70,15 +73,21 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
 
     useEffect(() => {
         async function loadFee() {
+            if (cart.location !== 'delivery') return
+            setIsCalculatingFee(true)
             try {
-                const fee = await getDeliveryFee()
-                setDeliveryFee(fee)
+                const coords = cart.deliveryAddress?.coordinates
+                const res = await calculateDeliveryFee(coords)
+                setFeeInfo(res)
+                setDeliveryFee(res.fee)
             } catch (err) {
                 console.error('Error loading delivery fee:', err)
+            } finally {
+                setIsCalculatingFee(false)
             }
         }
         loadFee()
-    }, [])
+    }, [cart.location, cart.deliveryAddress?.coordinates?.lat, cart.deliveryAddress?.coordinates?.lng])
 
     const subtotal = getTotal()
     const activeDeliveryFee = cart.location === 'delivery' ? deliveryFee : 0
@@ -104,6 +113,7 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
         setDeliveryAddress({
             street: val,
             reference: referenceInput,
+            coordinates: cart.deliveryAddress?.coordinates,
         })
     }
 
@@ -112,21 +122,35 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
         setDeliveryAddress({
             street: streetInput,
             reference: val,
+            coordinates: cart.deliveryAddress?.coordinates,
         })
     }
 
-    const handleLocationSelected = (data: { street: string; reference: string; lat?: number; lng?: number }) => {
+    const handleLocationSelected = async (data: { street: string; reference: string; lat?: number; lng?: number }) => {
         if (data.street) {
             setStreetInput(data.street)
         }
         if (data.reference) {
             setReferenceInput(data.reference)
         }
+        const coords = data.lat && data.lng ? { lat: data.lat, lng: data.lng } : undefined
         setDeliveryAddress({
             street: data.street || streetInput,
             reference: data.reference || referenceInput,
-            coordinates: data.lat && data.lng ? { lat: data.lat, lng: data.lng } : undefined,
+            coordinates: coords,
         })
+        if (coords) {
+            setIsCalculatingFee(true)
+            try {
+                const res = await calculateDeliveryFee(coords)
+                setFeeInfo(res)
+                setDeliveryFee(res.fee)
+            } catch (err) {
+                console.error('Error calculating dynamic fee for selected location:', err)
+            } finally {
+                setIsCalculatingFee(false)
+            }
+        }
     }
 
     const handleCreateOrder = async () => {
@@ -173,6 +197,7 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
                 deliveryAddress: deliveryAddressToUse,
                 paymentType: selectedPayment,
                 total: finalTotal,
+                tableId: cart.tableId,
             }
 
             const response = await createOrder(orderDetails)
@@ -388,7 +413,9 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
                             </div>
                             <div className="flex items-center gap-1.5 bg-amber-500/10 border border-secondary text-slate-900 font-extrabold text-xs px-2.5 py-1 rounded-sm">
                                 <span>Costo Domicilio:</span>
-                                <span className="text-amber-700 font-black">{formatCurrency(deliveryFee)}</span>
+                                <span className="text-amber-700 font-black">
+                                    {isCalculatingFee ? 'Calculando...' : formatCurrency(deliveryFee)}
+                                </span>
                             </div>
                         </div>
 
@@ -401,6 +428,20 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
                             <MapPin className="w-4 h-4 text-amber-700 shrink-0" />
                             <span>Seleccionar o Fijar Ubicación en el Mapa (GPS)</span>
                         </button>
+
+                        {/* Calculated Distance Breakdown */}
+                        {feeInfo && feeInfo.distanceKm > 0 && (
+                            <div className="p-3 bg-amber-50 border border-amber-200 rounded-sm text-xs text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-1 font-medium">
+                                <span className="flex items-center gap-1.5 font-bold">
+                                    <MapPin className="w-4 h-4 text-amber-700" /> Distancia: {feeInfo.distanceKm} km
+                                </span>
+                                <span className="text-amber-800 text-[11px]">
+                                    {feeInfo.isBaseKm
+                                        ? 'Tarifa base (dentro de km incluidos)'
+                                        : `${feeInfo.extraKm} km adicionales (+${formatCurrency(feeInfo.extraKmFee)})`}
+                                </span>
+                            </div>
+                        )}
 
                         <div className="space-y-3">
                             <div>
@@ -493,11 +534,25 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
                         <span className="font-bold text-slate-800">{formatCurrency(subtotal)}</span>
                     </div>
                     {cart.location === 'delivery' && (
-                        <div className="flex justify-between items-center text-sm text-slate-500 font-medium pt-1 border-t border-dashed border-slate-200">
-                            <span className="flex items-center gap-1.5 font-bold text-slate-800">
-                                <Truck className="w-4 h-4 text-secondary" /> Servicio de Domicilio
-                            </span>
-                            <span className="font-bold text-amber-700">+{formatCurrency(deliveryFee)}</span>
+                        <div className="pt-2 border-t border-dashed border-slate-200 space-y-1">
+                            <div className="flex justify-between items-center text-sm text-slate-500 font-medium">
+                                <span className="flex items-center gap-1.5 font-bold text-slate-800">
+                                    <Truck className="w-4 h-4 text-secondary" /> Servicio de Domicilio
+                                </span>
+                                <span className="font-bold text-amber-700">
+                                    {isCalculatingFee ? 'Calculando...' : `+${formatCurrency(deliveryFee)}`}
+                                </span>
+                            </div>
+                            {feeInfo && feeInfo.distanceKm > 0 && (
+                                <div className="flex justify-between items-center text-xs text-slate-500 font-medium pl-5">
+                                    <span>Distancia estimada: {feeInfo.distanceKm} km</span>
+                                    <span>
+                                        {feeInfo.isBaseKm
+                                            ? 'Tarifa base'
+                                            : `${feeInfo.extraKm} km adicionales`}
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     )}
                     <div className="pt-3 border-t border-slate-200 flex justify-between items-center">

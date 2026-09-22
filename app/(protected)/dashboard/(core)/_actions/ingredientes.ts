@@ -4,11 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { requireRole, runWithAuditContext } from "@/utils/auth";
 import { revalidatePath } from "next/cache";
 import { IngredientType } from "@/lib/generated/prisma/client";
+import { serializePrisma } from "@/utils/serializePrisma";
 
 export async function getIngredients() {
   await requireRole(["SUPER_ADMIN", "ADMIN"]);
 
-  return prisma.ingredients.findMany({
+  const result = await prisma.ingredients.findMany({
     orderBy: { createdAt: "desc" },
     include: {
       createdBy: {
@@ -16,6 +17,7 @@ export async function getIngredients() {
       },
     },
   });
+  return serializePrisma(result);
 }
 
 export async function createIngredient(data: {
@@ -48,7 +50,7 @@ export async function createIngredient(data: {
   });
 
   revalidatePath("/dashboard/ingredientes");
-  return result;
+  return serializePrisma(result);
 }
 
 export async function updateIngredient(
@@ -84,7 +86,7 @@ export async function updateIngredient(
   });
 
   revalidatePath("/dashboard/ingredientes");
-  return result;
+  return serializePrisma(result);
 }
 
 export async function deleteIngredient(id: string) {
@@ -95,5 +97,5 @@ export async function deleteIngredient(id: string) {
   });
 
   revalidatePath("/dashboard/ingredientes");
-  return result;
+  return serializePrisma(result);
 }

@@ -6,6 +6,11 @@ import { prisma } from "@/lib/prisma";
 import { checkIsSuperAdmin, checkSession } from "@/utils/auth";
 import { Role } from "@/lib/generated/prisma/enums";
 import { redirect } from "next/navigation";
+import { requireRole } from "@/utils/auth";
+import { serializePrisma } from "@/utils/serializePrisma";
+import { createOrder } from "@/app/(public)/order/actions";
+import type { OrderDetails } from "@/types/Order";
+import type { AdminOrderCatalog } from "@/types/AdminOrder";
 
 export default async function registerAction(formdata: FormData) {
     const name = formdata.get("name") as string;
@@ -80,4 +85,63 @@ export async function updateRoleAction(formdata: FormData) {
     }
 
     return { success: true };
+}
+
+export async function getDashboardOrderCatalog() {
+    await requireRole(["SUPER_ADMIN", "ADMIN"]);
+
+    const [products, drinks, sauces] = await Promise.all([
+        prisma.products.findMany({
+            orderBy: { name: "asc" },
+            select: {
+                id: true,
+                name: true,
+                description: true,
+                price: true,
+                productIngredients: {
+                    select: {
+                        ingredient: {
+                            select: { id: true, name: true, price: true, type: true, isTopping: true },
+                        },
+                    },
+                },
+            },
+        }),
+        prisma.drink.findMany({
+            orderBy: { name: "asc" },
+            select: { id: true, name: true, description: true, price: true },
+        }),
+        prisma.sauce.findMany({
+            orderBy: { name: "asc" },
+            select: { id: true, name: true, hex: true },
+        }),
+    ]);
+
+    return serializePrisma({ products, drinks, sauces }) as unknown as AdminOrderCatalog;
+}
+
+export async function findLatestCustomerByPhone(phone: string) {
+    await requireRole(["SUPER_ADMIN", "ADMIN"]);
+
+    const normalizedPhone = phone.trim();
+    if (!normalizedPhone) return null;
+
+    const order = await prisma.order.findFirst({
+        where: { buyerPhone: { contains: normalizedPhone } },
+        orderBy: { createdAt: "desc" },
+        select: {
+            buyerName: true,
+            buyerPhone: true,
+            buyerEmail: true,
+            address: true,
+            onSite: true,
+        },
+    });
+
+    return order ? serializePrisma(order) : null;
+}
+
+export async function createAdminOrder(details: OrderDetails) {
+    await requireRole(["SUPER_ADMIN", "ADMIN"]);
+    return createOrder(details);
 }

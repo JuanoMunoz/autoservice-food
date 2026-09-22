@@ -3,11 +3,12 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole, runWithAuditContext } from "@/utils/auth";
 import { revalidatePath } from "next/cache";
+import { serializePrisma } from "@/utils/serializePrisma";
 
 export async function getDrinks() {
   await requireRole(["SUPER_ADMIN", "ADMIN"]);
 
-  return prisma.drink.findMany({
+  const result = await prisma.drink.findMany({
     orderBy: { createdAt: "desc" },
     include: {
       createdBy: {
@@ -15,6 +16,7 @@ export async function getDrinks() {
       },
     },
   });
+  return serializePrisma(result);
 }
 
 export async function createDrink(data: {
@@ -43,7 +45,7 @@ export async function createDrink(data: {
   });
 
   revalidatePath("/dashboard/bebidas");
-  return result;
+  return serializePrisma(result);
 }
 
 export async function updateDrink(
@@ -75,7 +77,7 @@ export async function updateDrink(
   });
 
   revalidatePath("/dashboard/bebidas");
-  return result;
+  return serializePrisma(result);
 }
 
 export async function deleteDrink(id: string) {
@@ -86,5 +88,5 @@ export async function deleteDrink(id: string) {
   });
 
   revalidatePath("/dashboard/bebidas");
-  return result;
+  return serializePrisma(result);
 }

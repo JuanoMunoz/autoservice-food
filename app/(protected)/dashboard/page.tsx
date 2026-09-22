@@ -3,6 +3,7 @@ import { Sparkles, Utensils, CupSoda, Sandwich, Settings, ShoppingCart } from "l
 import Link from "next/link"
 import DashboardPageClient from "./_components/DashboardPageClient"
 import { getAllActiveOrders } from "@/app/(public)/order/actions"
+import { getDashboardOrderCatalog } from "./actions"
 
 export const metadata = {
     title: 'Pantalla de Cocina (KDS) | CheesePapas Admin',
@@ -11,12 +12,15 @@ export const metadata = {
 
 export default async function DashboardPage() {
     const session = await requireSession()
-    const initialOrders = await getAllActiveOrders()
+    const [initialOrders, catalog] = await Promise.all([
+        getAllActiveOrders(),
+        getDashboardOrderCatalog(),
+    ])
 
     return (
         <div className="p-4 lg:p-8 space-y-6 max-w-7xl mx-auto font-sans">
 
-            <DashboardPageClient initialOrders={initialOrders} />
+            <DashboardPageClient initialOrders={initialOrders} catalog={catalog} />
         </div>
     )
 }

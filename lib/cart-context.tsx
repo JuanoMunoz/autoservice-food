@@ -16,6 +16,7 @@ export interface CartContextType {
     cart: Cart
     isHydrated: boolean
     setLocation: (location: LocationType) => void
+    setTable: (table: { id: string; number: number; name?: string | null }) => void
     addItem: (item: CartItem) => void
     removeItem: (itemId: string, itemType: 'product' | 'drink') => void
     updateItemQuantity: (itemId: string, quantity: number, itemType: 'product' | 'drink') => void
@@ -58,53 +59,66 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             const updated = {
                 ...prev,
                 location,
+                tableId: undefined,
+                tableNumber: undefined,
+                tableName: undefined,
             }
             saveCartToStorage(updated)
             return updated
         })
     }, [])
 
+    const setTable = useCallback((table: { id: string; number: number; name?: string | null }) => {
+        setCart((prev) => ({
+            ...prev,
+            location: 'onSite',
+            tableId: table.id,
+            tableNumber: table.number,
+            tableName: table.name ?? undefined,
+        }))
+    }, [])
 
-function areCartItemsEqual(a: CartItem, b: CartItem): boolean {
-    const aBaseId = (a as any).productId || (a as any).drinkId || a.id
-    const bBaseId = (b as any).productId || (b as any).drinkId || b.id
 
-    if (a.type !== b.type || aBaseId !== bBaseId) {
-        return false
-    }
+    function areCartItemsEqual(a: CartItem, b: CartItem): boolean {
+        const aBaseId = (a as any).productId || (a as any).drinkId || a.id
+        const bBaseId = (b as any).productId || (b as any).drinkId || b.id
 
-    if (a.type === 'product' && b.type === 'product') {
-        const aIngs = a.ingredients || []
-        const bIngs = b.ingredients || []
+        if (a.type !== b.type || aBaseId !== bBaseId) {
+            return false
+        }
 
-        if (aIngs.length !== bIngs.length) return false
+        if (a.type === 'product' && b.type === 'product') {
+            const aIngs = a.ingredients || []
+            const bIngs = b.ingredients || []
 
-        const sortedA = [...aIngs].sort((x, y) => x.id.localeCompare(y.id))
-        const sortedB = [...bIngs].sort((x, y) => x.id.localeCompare(y.id))
+            if (aIngs.length !== bIngs.length) return false
 
-        for (let i = 0; i < sortedA.length; i++) {
-            if (sortedA[i].id !== sortedB[i].id || sortedA[i].quantity !== sortedB[i].quantity) {
-                return false
+            const sortedA = [...aIngs].sort((x, y) => x.id.localeCompare(y.id))
+            const sortedB = [...bIngs].sort((x, y) => x.id.localeCompare(y.id))
+
+            for (let i = 0; i < sortedA.length; i++) {
+                if (sortedA[i].id !== sortedB[i].id || sortedA[i].quantity !== sortedB[i].quantity) {
+                    return false
+                }
+            }
+
+            const aSauces = a.sauces || []
+            const bSauces = b.sauces || []
+
+            if (aSauces.length !== bSauces.length) return false
+
+            const sortedASauces = [...aSauces].sort((x, y) => x.id.localeCompare(y.id))
+            const sortedBSauces = [...bSauces].sort((x, y) => x.id.localeCompare(y.id))
+
+            for (let i = 0; i < sortedASauces.length; i++) {
+                if (sortedASauces[i].id !== sortedBSauces[i].id) {
+                    return false
+                }
             }
         }
 
-        const aSauces = a.sauces || []
-        const bSauces = b.sauces || []
-
-        if (aSauces.length !== bSauces.length) return false
-
-        const sortedASauces = [...aSauces].sort((x, y) => x.id.localeCompare(y.id))
-        const sortedBSauces = [...bSauces].sort((x, y) => x.id.localeCompare(y.id))
-
-        for (let i = 0; i < sortedASauces.length; i++) {
-            if (sortedASauces[i].id !== sortedBSauces[i].id) {
-                return false
-            }
-        }
+        return true
     }
-
-    return true
-}
 
     const addItem = useCallback((item: CartItem) => {
         setCart((prev) => {
@@ -251,6 +265,9 @@ function areCartItemsEqual(a: CartItem, b: CartItem): boolean {
             buyerEmail: prev.buyerEmail,
             deliveryAddress: prev.deliveryAddress,
             location: prev.location,
+            tableId: prev.tableId,
+            tableNumber: prev.tableNumber,
+            tableName: prev.tableName,
         }))
     }, [])
 
@@ -258,6 +275,7 @@ function areCartItemsEqual(a: CartItem, b: CartItem): boolean {
         cart,
         isHydrated,
         setLocation,
+        setTable,
         addItem,
         removeItem,
         updateItemQuantity,

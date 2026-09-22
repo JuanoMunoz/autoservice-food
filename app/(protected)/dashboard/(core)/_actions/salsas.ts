@@ -3,11 +3,12 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole, runWithAuditContext } from "@/utils/auth";
 import { revalidatePath } from "next/cache";
+import { serializePrisma } from "@/utils/serializePrisma";
 
 export async function getSauces() {
   await requireRole(["SUPER_ADMIN", "ADMIN"]);
-  
-  return prisma.sauce.findMany({
+
+  const result = await prisma.sauce.findMany({
     orderBy: { createdAt: "desc" },
     include: {
       createdBy: {
@@ -18,11 +19,12 @@ export async function getSauces() {
       },
     },
   });
+  return serializePrisma(result);
 }
 
 export async function createSauce(data: { name: string; hex: string }) {
   const session = await requireRole(["SUPER_ADMIN", "ADMIN"]);
-  
+
   if (!data.name.trim() || !data.hex.trim()) {
     throw new Error("El nombre y el color hexadecimal son requeridos.");
   }
@@ -38,7 +40,7 @@ export async function createSauce(data: { name: string; hex: string }) {
   });
 
   revalidatePath("/dashboard/salsas");
-  return result;
+  return serializePrisma(result);
 }
 
 export async function updateSauce(id: string, data: { name: string; hex: string }) {
@@ -59,7 +61,7 @@ export async function updateSauce(id: string, data: { name: string; hex: string 
   });
 
   revalidatePath("/dashboard/salsas");
-  return result;
+  return serializePrisma(result);
 }
 
 export async function deleteSauce(id: string) {
@@ -72,5 +74,5 @@ export async function deleteSauce(id: string) {
   });
 
   revalidatePath("/dashboard/salsas");
-  return result;
+  return serializePrisma(result);
 }

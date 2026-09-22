@@ -50,6 +50,16 @@ export interface DeliveryAddress {
     }
 }
 
+export interface DeliveryFeeCalculationResult {
+    fee: number
+    distanceKm: number
+    isBaseKm: boolean
+    extraKm: number
+    baseFee: number
+    extraKmFee: number
+    error?: string
+}
+
 export interface OrderDetails {
     location: LocationType
     items: CartItem[]
@@ -59,6 +69,7 @@ export interface OrderDetails {
     deliveryAddress?: DeliveryAddress
     paymentType?: PaymentType
     total: number
+    tableId?: string
 }
 
 export interface Cart {
@@ -69,6 +80,9 @@ export interface Cart {
     buyerEmail?: string
     deliveryAddress?: DeliveryAddress
     paymentType?: PaymentType
+    tableId?: string
+    tableNumber?: number
+    tableName?: string
 }
 
 export interface OrderResponse {
@@ -82,6 +96,11 @@ export interface OrderResponse {
     status: OrderStatus
     createdAt: string
     updatedAt: string
+    table?: {
+        id: string
+        number: number
+        name?: string | null
+    } | null
     items?: Array<{
         id: string
         quantity: number

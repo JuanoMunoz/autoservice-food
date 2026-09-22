@@ -27,15 +27,20 @@ interface Drink {
 interface ProductsClientProps {
     initialProducts: Product[]
     initialDrinks: Drink[]
+    table?: { id: string; number: number; name?: string | null }
 }
 
-export default function ProductsClient({ initialProducts, initialDrinks }: ProductsClientProps) {
+export default function ProductsClient({ initialProducts, initialDrinks, table }: ProductsClientProps) {
     const router = useRouter()
-    const { cart, isHydrated, getTotal, getItemCount, setLocation } = useCart()
+    const { cart, isHydrated, getTotal, getItemCount, setLocation, setTable } = useCart()
     const [products] = useState<Product[]>(initialProducts)
     const [drinks] = useState<Drink[]>(initialDrinks)
     const [activeCategory, setActiveCategory] = useState<'comidas' | 'bebidas'>('comidas')
     const [showLocationModal, setShowLocationModal] = useState(false)
+
+    useEffect(() => {
+        if (table) setTable(table)
+    }, [table, setTable])
 
     useEffect(() => {
         if (!isHydrated) return
@@ -76,7 +81,9 @@ export default function ProductsClient({ initialProducts, initialDrinks }: Produ
                         <h1 className="text-2xl font-saira font-extrabold text-slate-900 tracking-wider flex items-center gap-2">
                             Cheese<span className="text-secondary">Papas</span>
                         </h1>
-                        <p className="text-xs text-slate-500 font-semibold hidden sm:block">Autoservicio</p>
+                        <p className="text-xs text-slate-500 font-semibold hidden sm:block">
+                            {cart.tableNumber ? `Mesa ${cart.tableNumber}` : 'Autoservicio'}
+                        </p>
                     </div>
                 </div>
 

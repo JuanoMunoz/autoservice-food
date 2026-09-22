@@ -3,13 +3,22 @@
 import { useRouter } from 'next/navigation'
 import { useCart } from '@/app/_hooks/use-cart'
 import { LocationType } from '@/types/Order'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Truck, MapPin, Sparkles, ChevronRight } from 'lucide-react'
 
 export default function OrderClient() {
     const router = useRouter()
     const { setLocation } = useCart()
     const [isLoading, setIsLoading] = useState(false)
+    const titleClicks = useRef(0)
+
+    const handleTitleClick = () => {
+        titleClicks.current += 1
+
+        if (titleClicks.current === 8) {
+            router.push('/login')
+        }
+    }
 
     const handleLocationSelect = (location: LocationType) => {
         setIsLoading(true)
@@ -22,7 +31,10 @@ export default function OrderClient() {
             <div className="w-full max-w-lg space-y-8">
 
                 <div className="text-center space-y-3">
-                    <h1 className="text-4xl sm:text-5xl font-saira font-extrabold text-slate-900 tracking-wider">
+                    <h1
+                        className="text-4xl sm:text-5xl font-saira font-extrabold text-slate-900 tracking-wider"
+                        onClick={handleTitleClick}
+                    >
                         Cheese<span className="text-secondary">Papas</span>
                     </h1>
                     <p className="text-base sm:text-lg text-slate-600 font-semibold">
