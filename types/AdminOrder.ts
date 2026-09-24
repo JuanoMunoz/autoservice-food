@@ -42,5 +42,6 @@ export interface AdminCustomerContact {
     phone: string
     email: string
     address: string
+    reference?: string
     onSite: boolean
 }
