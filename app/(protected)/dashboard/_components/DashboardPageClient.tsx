@@ -7,6 +7,7 @@ import type { AdminOrderCatalog } from '@/types/AdminOrder'
 import { updateOrderStatus, cancelOrder, getAllActiveOrders, getOrderDetail } from '@/app/(public)/order/actions'
 import { formatCurrency } from '@/utils/cartStorage'
 import { usePrinter } from '@/app/_hooks/use-printer'
+import { useThermalPrinter } from '@/app/_hooks/use-thermal-printer'
 import CreateOrderModal from './CreateOrderModal'
 import SelectDriverModal from './SelectDriverModal'
 import InvoiceReceipt from '@/app/_components/InvoiceReceipt'
@@ -26,7 +27,9 @@ import {
     RefreshCw,
     Printer,
     FileText,
-    UserPlus
+    UserPlus,
+    Bluetooth,
+    BluetoothOff
 } from 'lucide-react'
 
 interface DashboardPageClientProps {
@@ -36,6 +39,7 @@ interface DashboardPageClientProps {
 
 export default function DashboardPageClient({ initialOrders, catalog }: DashboardPageClientProps) {
     const { print, isPrinting } = usePrinter()
+    const thermal = useThermalPrinter()
 
     const [orders, setOrders] = useState<OrderResponse[]>(initialOrders)
     const [isConnected, setIsConnected] = useState(false)
@@ -321,6 +325,46 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
         }
     }
 
+    // Thermal (BLE) printer handlers — DIG-C58 por Bluetooth, sin apps ni cable
+    const handleThermalConnect = async () => {
+        try {
+            await thermal.connect()
+            toast.success('Impresora térmica conectada', {
+                description: 'Ya puedes imprimir facturas con el botón Térmica.',
+                duration: 4000,
+            })
+        } catch (e) {
+            toast.error('No se pudo conectar', {
+                description: e instanceof Error ? e.message : 'Intenta de nuevo.',
+                duration: 5000,
+            })
+        }
+    }
+
+    const handleThermalTest = async () => {
+        try {
+            await thermal.printTest()
+            toast.success('Prueba enviada a la térmica')
+        } catch (e) {
+            toast.error('Falló la prueba', {
+                description: e instanceof Error ? e.message : 'Revisa la conexión.',
+                duration: 5000,
+            })
+        }
+    }
+
+    const handleThermalPrint = async (order: OrderResponse) => {
+        try {
+            await thermal.printOrder(order)
+            toast.success(`Factura #${order.id} enviada a la térmica`)
+        } catch (e) {
+            toast.error(`No se pudo imprimir #${order.id}`, {
+                description: e instanceof Error ? e.message : 'Revisa la conexión.',
+                duration: 5000,
+            })
+        }
+    }
+
     // Helper to calculate elapsed time in MM:SS
     const getElapsedTime = (createdAt: string) => {
         const createdMs = new Date(createdAt).getTime()
@@ -349,6 +393,55 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                 </div>
 
                 <div className="flex items-center gap-3">
+                    {thermal.isSupported ? (
+                        thermal.isConnected ? (
+                            <div className="flex items-center gap-2">
+                                <span
+                                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold bg-sky-950 text-sky-300 border-sky-800/60"
+                                    title={thermal.deviceName || 'Impresora térmica conectada'}
+                                >
+                                    <Bluetooth className="w-4 h-4" />
+                                    <span className="max-w-28 truncate">
+                                        {thermal.status === 'printing' ? 'Imprimiendo...' : (thermal.deviceName || 'Térmica OK')}
+                                    </span>
+                                </span>
+                                <button
+                                    onClick={handleThermalTest}
+                                    disabled={thermal.isBusy}
+                                    className="px-2.5 py-1.5 rounded-xl border text-xs font-bold bg-slate-800 text-stone-200 border-slate-700 hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50"
+                                    title="Enviar ticket de prueba a la térmica"
+                                >
+                                    Probar
+                                </button>
+                                <button
+                                    onClick={thermal.disconnect}
+                                    className="p-1.5 rounded-xl border text-xs bg-slate-900 text-slate-500 border-slate-800 hover:bg-slate-850 transition-colors cursor-pointer"
+                                    title="Desconectar impresora térmica"
+                                >
+                                    <BluetoothOff className="w-4 h-4" />
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={handleThermalConnect}
+                                disabled={thermal.isBusy}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-colors cursor-pointer bg-sky-950 text-sky-300 border-sky-800 hover:bg-sky-900 disabled:opacity-50"
+                                title="Vincular impresora térmica Bluetooth (DIG-C58)"
+                            >
+                                <Bluetooth className="w-4 h-4" />
+                                <span>{thermal.status === 'connecting' ? 'Buscando...' : 'Conectar térmica'}</span>
+                            </button>
+                        )
+                    ) : (
+                        <span
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold bg-slate-900 text-slate-500 border-slate-800"
+                            title="Este navegador no soporta WebBluetooth. Usa Chrome en Android."
+                        >
+                            <BluetoothOff className="w-4 h-4" />
+                            <span>BT no soportado</span>
+                        </span>
+                    )}
+
                     <button
                         type="button"
                         onClick={() => setIsCreateOrderOpen(true)}
@@ -538,6 +631,16 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                                 <span className="text-sm uppercase tracking-wide">Comprobante de Venta KDS</span>
                             </div>
                             <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => invoiceModalOrder && handleThermalPrint(invoiceModalOrder)}
+                                    disabled={!thermal.isConnected || thermal.isBusy}
+                                    className="bg-sky-700 hover:bg-sky-600 disabled:opacity-50 text-white px-3 py-1.5 rounded-sm font-black text-xs flex items-center gap-1.5 shadow-sm cursor-pointer active:scale-95 transition-all"
+                                    title={thermal.isConnected ? 'Enviar factura a la térmica Bluetooth' : 'Primero conecta la térmica con el botón "Conectar térmica"'}
+                                >
+                                    <Bluetooth className="w-4 h-4" />
+                                    <span>{thermal.status === 'printing' ? 'Enviando...' : 'Térmica'}</span>
+                                </button>
                                 <button
                                     type="button"
                                     onClick={print}

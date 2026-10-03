@@ -34,9 +34,9 @@ export const metadata: Metadata = {
   publisher: "CheesePapas",
   category: "food",
   icons: {
-    icon: '/logo-cheesepapas.webp',
-    shortcut: '/logo-cheesepapas.webp',
-    apple: '/logo-cheesepapas.webp',
+    icon: '/icon-192.png',
+    shortcut: '/icon-192.png',
+    apple: '/icon-192.png',
   },
   openGraph: {
     type: "website",
