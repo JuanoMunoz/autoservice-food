@@ -165,6 +165,20 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
         return () => clearInterval(interval)
     }, [])
 
+    // Escape cierra cualquier modal abierto
+    useEffect(() => {
+        if (!invoiceModalOrder && !cancelModalOrder && !driverModalOrder) return
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setInvoiceModalOrder(null)
+                setCancelModalOrder(null)
+                setDriverModalOrder(null)
+            }
+        }
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+    }, [invoiceModalOrder, cancelModalOrder, driverModalOrder])
+
     // Polling Handler for Active Orders
     useEffect(() => {
         let isMounted = true
@@ -304,14 +318,14 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
         }
     }
 
-    const handleConfirmDriverSelect = async (driverId: string | null, notes?: string) => {
+    const handleConfirmDriverSelect = async (driverId: string | null, notes?: string, paymentMethod?: string) => {
         if (!driverModalOrder) return
         const orderId = driverModalOrder.id
         setIsUpdatingId(orderId)
         locallyProcessedIdsRef.current.add(orderId)
 
         try {
-            await completeOrderWithDriver(orderId, driverId, notes)
+            await completeOrderWithDriver(orderId, driverId, notes, paymentMethod)
             toast.success(`Orden #${orderId} completada exitosamente`)
             setDriverModalOrder(null)
         } catch (err) {
@@ -385,15 +399,23 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
         }
     }
 
-    // Helper to calculate elapsed time in MM:SS
+    // Helper: elapsed display with cap (MM:SS → H:MM → Xd) + stale flag
     const getElapsedTime = (createdAt: string) => {
         const createdMs = new Date(createdAt).getTime()
-        const diffSecs = Math.max(0, Math.floor((now - createdMs) / 1000))
-        const mins = Math.floor(diffSecs / 60)
-            .toString()
-            .padStart(2, '0')
-        const secs = (diffSecs % 60).toString().padStart(2, '0')
-        return { formatted: `${mins}:${secs}`, totalMins: Math.floor(diffSecs / 60) }
+        const base = Number.isNaN(createdMs) ? now : createdMs
+        const diffSecs = Math.max(0, Math.floor((now - base) / 1000))
+        const totalMins = Math.floor(diffSecs / 60)
+        let formatted: string
+        if (totalMins >= 1440) {
+            formatted = `${Math.floor(totalMins / 1440)}d`
+        } else if (totalMins >= 60) {
+            formatted = `${Math.floor(totalMins / 60)}:${(totalMins % 60).toString().padStart(2, '0')}h`
+        } else {
+            const mins = totalMins.toString().padStart(2, '0')
+            const secs = (diffSecs % 60).toString().padStart(2, '0')
+            formatted = `${mins}:${secs}`
+        }
+        return { formatted, totalMins, stale: totalMins >= 1440 }
     }
 
     // Stage Column Filters (FIFO Sorted by creation time)
@@ -404,20 +426,24 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
     return (
         <div className="space-y-6 font-sans select-none print:p-0">
             {/* Header Controls (Hidden on print) */}
-            <div className="p-4 flex flex-wrap items-center justify-between gap-4  rounded-md print:hidden">
-                <div className="flex items-center gap-2">
-                    <span className={`w-3 h-3 rounded-full ${isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'}`} />
+            <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
+                <div
+                    className="flex items-center gap-2 px-3 min-h-11 rounded-xl bg-slate-900 border border-slate-800"
+                    role="status"
+                    aria-live="polite"
+                >
+                    <span className={`w-2.5 h-2.5 rounded-full ${isConnected ? 'bg-emerald-400 motion-reduce:animate-none animate-pulse' : 'bg-rose-500'}`} />
                     <span className="text-xs font-bold text-slate-300">
                         {isConnected ? 'Cocina en Línea' : 'Reconectando a cocina...'}
                     </span>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2">
                     <span
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold bg-sky-950 text-sky-300 border-sky-800/60"
+                        className="flex items-center gap-2 px-3 min-h-11 rounded-xl border text-xs font-bold bg-sky-950 text-sky-300 border-sky-800/60"
                         title="Impresión térmica por app RawBT (DIG-C58 por Bluetooth). Instala RawBT y conecta ahí la impresora una sola vez."
                     >
-                        <Bluetooth className="w-4 h-4" />
+                        <Bluetooth className="w-4 h-4" aria-hidden="true" />
                         <span>RawBT</span>
                     </span>
 
@@ -425,10 +451,10 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                         <button
                             onClick={handlePrintPending}
                             disabled={isPrintingThermal}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-black transition-colors cursor-pointer bg-rose-600 text-white border-rose-500 hover:bg-rose-500 animate-pulse disabled:opacity-50"
+                            className="flex items-center gap-2 px-3 min-h-11 rounded-xl border text-xs font-black transition-colors cursor-pointer bg-rose-600 text-white border-rose-500 hover:bg-rose-500 motion-reduce:animate-none animate-pulse disabled:opacity-50"
                             title="Enviar a RawBT todas las facturas pendientes"
                         >
-                            <FileText className="w-4 h-4" />
+                            <FileText className="w-4 h-4" aria-hidden="true" />
                             <span>Imprimir pendientes ({pendingPrints.length})</span>
                         </button>
                     )}
@@ -436,33 +462,35 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                     <button
                         type="button"
                         onClick={() => setIsCreateOrderOpen(true)}
-                        className="flex items-center gap-2 rounded-xl border border-amber-400 bg-amber-500 px-3 py-1.5 text-xs font-black text-slate-950 transition-colors hover:bg-amber-300"
+                        className="flex items-center gap-2 rounded-xl border border-amber-400 bg-amber-500 px-3 min-h-11 text-xs font-black text-slate-950 transition-colors hover:bg-amber-300 cursor-pointer"
                     >
-                        <UserPlus className="h-4 w-4" />
+                        <UserPlus className="h-4 w-4" aria-hidden="true" />
                         Añadir orden
                     </button>
 
                     <button
                         onClick={() => setAutoPrint(!autoPrint)}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-colors cursor-pointer ${autoPrint
-                            ? 'bg-amber-500 text-white font-black border-amber-400 shadow-sm'
-                            : 'bg-slate-900 text-slate-500 border-slate-800 hover:bg-slate-850'
+                        aria-pressed={autoPrint}
+                        className={`flex items-center gap-2 px-3 min-h-11 rounded-xl border text-xs font-bold transition-colors cursor-pointer ${autoPrint
+                            ? 'bg-amber-500 text-slate-950 font-black border-amber-400 shadow-sm'
+                            : 'bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800'
                             }`}
                         title="Enviar a RawBT la factura cuando llegue un nuevo pedido (activado por defecto)"
                     >
-                        <Printer className="w-4 h-4" />
+                        <Printer className="w-4 h-4" aria-hidden="true" />
                         <span>{autoPrint ? 'Auto-Térmica ON' : 'Auto-Térmica OFF'}</span>
                     </button>
 
                     <button
                         onClick={() => setSoundEnabled(!soundEnabled)}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-colors cursor-pointer ${soundEnabled
-                            ? 'bg-slate-800 text-stone-200 border-slate-700 hover:bg-slate-700'
-                            : 'bg-slate-900 text-slate-500 border-slate-800 hover:bg-slate-850'
+                        aria-pressed={soundEnabled}
+                        className={`flex items-center gap-2 px-3 min-h-11 rounded-xl border text-xs font-bold transition-colors cursor-pointer ${soundEnabled
+                            ? 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700'
+                            : 'bg-slate-900 text-slate-500 border-slate-800 hover:bg-slate-800'
                             }`}
                         title="Alternar sonido de nuevos pedidos"
                     >
-                        {soundEnabled ? <Volume2 className="w-4 h-4 text-stone-200" /> : <VolumeX className="w-4 h-4" />}
+                        {soundEnabled ? <Volume2 className="w-4 h-4" aria-hidden="true" /> : <VolumeX className="w-4 h-4" aria-hidden="true" />}
                         <span>{soundEnabled ? 'Sonido ON' : 'Mute'}</span>
                     </button>
                 </div>
@@ -470,7 +498,7 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
 
             {/* KDS Columns Grid (Hidden on print) */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start print:hidden">
-                <div className="bg-slate-950/80 rounded-md p-4 space-y-4 shadow-lg">
+                <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4 space-y-4 shadow-lg">
                     <div className="flex items-center justify-between pb-3 px-2">
                         <div className="flex items-center gap-2">
                             <div className="w-3 h-3 rounded-full bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.5)]" />
@@ -494,6 +522,7 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                                     onNext={() => handleNextStage(order)}
                                     onCancel={() => setCancelModalOrder(order)}
                                     onOpenInvoice={() => setInvoiceModalOrder(order)}
+                                    onPrintThermal={() => handleThermalPrint(order)}
                                     pendingPrint={pendingPrints.includes(order.id)}
                                     nextLabel="Iniciar Preparación"
                                 />
@@ -504,15 +533,15 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                     </div>
                 </div>
 
-                <div className="bg-slate-950/80 rounded-md p-4 space-y-4 shadow-lg">
+                <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4 space-y-4 shadow-lg">
                     <div className="flex items-center justify-between pb-3 px-2">
                         <div className="flex items-center gap-2">
-                            <Flame className="w-4 h-4 text-stone-200" />
+                            <Flame className="w-4 h-4 text-sky-400" aria-hidden="true" />
                             <h2 className="text-base font-black text-slate-100 uppercase tracking-wider">
                                 En Preparación
                             </h2>
                         </div>
-                        <span className="bg-stone-200/10 text-stone-200 border border-stone-200/30 px-3 py-0.5 rounded-full text-xs font-black">
+                        <span className="bg-sky-400/10 text-sky-300 border border-sky-400/30 px-3 py-0.5 rounded-full text-xs font-black">
                             {preparingOrders.length}
                         </span>
                     </div>
@@ -528,6 +557,7 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                                     onNext={() => handleNextStage(order)}
                                     onCancel={() => setCancelModalOrder(order)}
                                     onOpenInvoice={() => setInvoiceModalOrder(order)}
+                                    onPrintThermal={() => handleThermalPrint(order)}
                                     pendingPrint={pendingPrints.includes(order.id)}
                                     nextLabel="Marcar Listo"
                                 />
@@ -538,7 +568,7 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                     </div>
                 </div>
 
-                <div className="bg-slate-950/80 rounded-md p-4 space-y-4 shadow-lg">
+                <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4 space-y-4 shadow-lg">
                     <div className="flex items-center justify-between pb-3 px-2">
                         <div className="flex items-center gap-2">
                             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
@@ -562,6 +592,7 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                                     onNext={() => handleNextStage(order)}
                                     onCancel={() => setCancelModalOrder(order)}
                                     onOpenInvoice={() => setInvoiceModalOrder(order)}
+                                    onPrintThermal={() => handleThermalPrint(order)}
                                     pendingPrint={pendingPrints.includes(order.id)}
                                     nextLabel="Entregado / Finalizar"
                                 />
@@ -575,8 +606,14 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
 
             {/* Cancel Modal (Hidden on print) */}
             {cancelModalOrder && (
-                <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 z-50 print:hidden">
-                    <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-5">
+                <div
+                    className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 z-50 print:hidden"
+                    onClick={() => setCancelModalOrder(null)}
+                >
+                    <div
+                        className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-5"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                             <div className="flex items-center gap-2 text-rose-400 font-black">
                                 <AlertCircle className="w-6 h-6" />
@@ -591,8 +628,8 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                         </div>
 
                         <p className="text-sm text-slate-300 font-medium leading-relaxed">
-                            ¿Confirmas la cancelación de la orden <strong className="text-stone-100">#{cancelModalOrder.id}</strong> del cliente{' '}
-                            <strong className="text-stone-100">{cancelModalOrder.buyerName || 'Anónimo'}</strong>?
+                            ¿Confirmas la cancelación de la orden <strong className="text-slate-100">#{cancelModalOrder.id}</strong> del cliente{' '}
+                            <strong className="text-slate-100">{cancelModalOrder.buyerName || 'Anónimo'}</strong>?
                         </p>
 
                         <div className="flex items-center gap-3 pt-2">
@@ -614,13 +651,19 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                 </div>
             )}
 
-            {/* Invoice Printable Receipt Modal */}
+            {/* Invoice Printable Receipt Modal — tap fuera o Escape para cerrar */}
             {invoiceModalOrder && (
-                <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 overflow-y-auto print:static print:bg-transparent print:p-0 print:m-0">
-                    <div className="bg-white border-2 border-slate-300 rounded-sm p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-6 relative print:border-none print:shadow-none print:p-0 print:m-0 print:max-w-none text-slate-900 font-mono">
+                <div
+                    className="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 z-50 overflow-y-auto print:static print:bg-transparent print:p-0 print:m-0"
+                    onClick={() => setInvoiceModalOrder(null)}
+                >
+                    <div
+                        className="bg-slate-900 border border-slate-700 rounded-2xl p-4 sm:p-6 max-w-lg w-full shadow-2xl space-y-4 relative print:border-none print:shadow-none print:p-0 print:m-0 print:max-w-none print:bg-transparent"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         {/* Modal Action Header (Hidden on print) */}
-                        <div className="flex items-center justify-between border-b border-slate-200 pb-3 print:hidden">
-                            <div className="flex items-center gap-2 text-slate-900 font-black">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-3 print:hidden">
+                            <div className="flex items-center gap-2 text-slate-100 font-black">
                                 <FileText className="w-5 h-5 text-secondary" />
                                 <span className="text-sm uppercase tracking-wide">Comprobante de Venta KDS</span>
                             </div>
@@ -628,7 +671,7 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                                 <button
                                     type="button"
                                     onClick={() => invoiceModalOrder && handleThermalPrint(invoiceModalOrder)}
-                                    className="bg-sky-700 hover:bg-sky-600 text-white px-3 py-1.5 rounded-sm font-black text-xs flex items-center gap-1.5 shadow-sm cursor-pointer active:scale-95 transition-all"
+                                    className="bg-sky-700 hover:bg-sky-600 text-white px-3 py-2 rounded-xl font-black text-xs flex items-center gap-1.5 shadow-sm cursor-pointer active:scale-95 transition-all min-h-11"
                                     title="Enviar factura a la térmica por RawBT (requiere app RawBT instalada)"
                                 >
                                     <Bluetooth className="w-4 h-4" />
@@ -638,7 +681,7 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                                     type="button"
                                     onClick={print}
                                     disabled={isPrinting}
-                                    className="bg-secondary hover:bg-secondary-hover text-white px-3 py-1.5 rounded-sm font-black text-xs flex items-center gap-1.5 shadow-sm cursor-pointer active:scale-95 transition-all"
+                                    className="bg-secondary hover:bg-secondary-hover text-white px-3 py-2 rounded-xl font-black text-xs flex items-center gap-1.5 shadow-sm cursor-pointer active:scale-95 transition-all min-h-11"
                                 >
                                     <Printer className="w-4 h-4" />
                                     <span>Imprimir Factura</span>
@@ -646,12 +689,17 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                                 <button
                                     type="button"
                                     onClick={() => setInvoiceModalOrder(null)}
-                                    className="p-1.5 hover:bg-slate-100 text-slate-500 rounded-sm transition-colors cursor-pointer"
+                                    aria-label="Cerrar factura"
+                                    className="p-2.5 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded-xl transition-colors cursor-pointer min-h-11 min-w-11 flex items-center justify-center"
                                 >
                                     <X className="w-5 h-5" />
                                 </button>
                             </div>
                         </div>
+
+                        <p className="text-[11px] text-slate-500 text-center print:hidden">
+                            Toca fuera del comprobante o el botón ✕ para cerrar
+                        </p>
 
                         <InvoiceReceipt order={invoiceModalOrder} note="Comprobante generado desde la pantalla de Cocina (KDS)." />
                     </div>
@@ -683,11 +731,12 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
 
 interface KDSTicketCardProps {
     order: OrderResponse
-    elapsed: { formatted: string; totalMins: number }
+    elapsed: { formatted: string; totalMins: number; stale: boolean }
     isUpdating: boolean
     onNext: () => void
     onCancel: () => void
     onOpenInvoice: () => void
+    onPrintThermal: () => void
     pendingPrint?: boolean
     nextLabel: string
 }
@@ -699,11 +748,12 @@ function KDSTicketCard({
     onNext,
     onCancel,
     onOpenInvoice,
+    onPrintThermal,
     pendingPrint,
     nextLabel,
 }: KDSTicketCardProps) {
-    const isLate = elapsed.totalMins >= 10
-    const isWarning = elapsed.totalMins >= 5 && elapsed.totalMins < 10
+    const isLate = !elapsed.stale && elapsed.totalMins >= 20
+    const isWarning = !elapsed.stale && elapsed.totalMins >= 10 && elapsed.totalMins < 20
 
     const createdTime = new Date(order.createdAt).toLocaleTimeString('es-CO', {
         hour: '2-digit',
@@ -712,51 +762,63 @@ function KDSTicketCard({
 
     return (
         <div
-            className={`bg-slate-900 border rounded-sm p-4 shadow-lg space-y-3.5 transition-all relative overflow-hidden ${isLate
-                ? 'border-rose-500/80 ring-2 ring-rose-500/20'
+            className={`bg-slate-950 border rounded-2xl p-4 shadow-lg space-y-3 transition-colors relative overflow-hidden ${isLate
+                ? 'border-rose-500/70'
                 : isWarning
-                    ? 'border-amber-500/80'
-                    : 'border-slate-800 hover:border-slate-700'
+                    ? 'border-amber-500/60'
+                    : 'border-slate-800'
                 }`}
         >
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
                 <div>
                     <div className="flex items-center gap-2">
-                        <span className="text-2xl font-black text-stone-100 tracking-tight">
+                        <button
+                            type="button"
+                            onClick={onOpenInvoice}
+                            aria-label={`Ver factura de la orden ${order.id}`}
+                            className="text-2xl font-black text-slate-100 tracking-tight cursor-pointer hover:text-amber-300 transition-colors"
+                            title="Ver factura"
+                        >
                             #{order.id}
-                        </span>
+                        </button>
                         <span className="text-xs text-slate-500 font-bold">({createdTime})</span>
                     </div>
                     {order.buyerName && (
-                        <p className="text-xs font-extrabold text-slate-300 mt-0.5 line-clamp-1">
+                        <p
+                            className="text-xs font-extrabold text-slate-300 mt-0.5 truncate max-w-44"
+                            title={order.buyerName}
+                        >
                             Cliente: {order.buyerName}
                         </p>
                     )}
                 </div>
 
-                <div className="flex flex-col items-end gap-1">
-                    {/* Live Timer Badge */}
+                <div className="flex flex-col items-end gap-1.5">
+                    {/* Live Timer Badge — icon + text, never color alone */}
                     <div
-                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black ${isLate
-                            ? 'bg-rose-950 text-rose-300 border border-rose-800/60 animate-pulse'
-                            : isWarning
-                                ? 'bg-amber-950 text-amber-300 border border-amber-800/60'
-                                : 'bg-slate-800 text-stone-200 border border-slate-700'
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-black min-h-8 ${elapsed.stale
+                            ? 'bg-slate-800 text-slate-400 border border-slate-700'
+                            : isLate
+                                ? 'bg-rose-950 text-rose-300 border border-rose-800/60 motion-reduce:animate-none animate-pulse'
+                                : isWarning
+                                    ? 'bg-amber-950 text-amber-300 border border-amber-800/60'
+                                    : 'bg-slate-800 text-slate-200 border border-slate-700'
                             }`}
+                        title={elapsed.stale ? 'Pedido estancado: revisar' : `Tiempo en cocina: ${elapsed.formatted}`}
                     >
-                        <Clock className="w-3.5 h-3.5" />
-                        <span>{elapsed.formatted} min</span>
+                        <Clock className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                        <span>{elapsed.formatted}{!elapsed.stale && elapsed.totalMins < 60 ? ' min' : ''}</span>
                     </div>
 
                     {/* Order Type Badge */}
                     <div className="flex items-center gap-1 text-[11px] font-extrabold text-slate-400">
                         {order.onSite ? (
-                            <span className="inline-flex items-center gap-1 bg-slate-800/80 text-stone-200 px-2 py-0.5 rounded-full border border-slate-700">
-                                <MapPin className="w-3 h-3 text-stone-200" /> En Local
+                            <span className="inline-flex items-center gap-1 bg-slate-800/80 text-slate-200 px-2 py-0.5 rounded-full border border-slate-700">
+                                <MapPin className="w-3 h-3 text-slate-200" /> En Local
                             </span>
                         ) : (
-                            <span className="inline-flex items-center gap-1 bg-slate-800/80 text-stone-200 px-2 py-0.5 rounded-full border border-slate-700">
-                                <Truck className="w-3 h-3 text-stone-200" /> Delivery
+                            <span className="inline-flex items-center gap-1 bg-slate-800/80 text-slate-200 px-2 py-0.5 rounded-full border border-slate-700">
+                                <Truck className="w-3 h-3 text-slate-200" /> Delivery
                             </span>
                         )}
                         {order.table && (
@@ -776,11 +838,11 @@ function KDSTicketCard({
                         return (
                             <div
                                 key={`${item.id}-${idx}`}
-                                className="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800/80 space-y-1"
+                                className="bg-slate-900 p-2.5 rounded-xl border border-slate-800 space-y-1"
                             >
                                 <div className="flex items-baseline justify-between gap-2">
                                     <span className="font-black text-sm text-slate-100 leading-snug">
-                                        <span className="text-stone-200 mr-1.5">{item.quantity}x</span>
+                                        <span className="text-amber-300 mr-1.5">{item.quantity}x</span>
                                         {name}
                                     </span>
                                 </div>
@@ -789,8 +851,8 @@ function KDSTicketCard({
                                 {item.extras && item.extras.length > 0 && (
                                     <div className="pl-4 space-y-0.5">
                                         {item.extras.map((ex, exIdx) => (
-                                            <p key={exIdx} className="text-xs text-stone-300 font-medium flex items-center gap-1">
-                                                <span className="text-stone-200 font-bold">+</span> {ex.ingredient.name}
+                                            <p key={exIdx} className="text-xs text-slate-300 font-medium flex items-center gap-1">
+                                                <span className="text-amber-300 font-bold">+</span> {ex.ingredient.name}
                                             </p>
                                         ))}
                                     </div>
@@ -802,7 +864,7 @@ function KDSTicketCard({
                                         {item.sauces.map((s, sIdx) => (
                                             <span
                                                 key={sIdx}
-                                                className="inline-flex items-center gap-1 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-full text-[10px] font-extrabold text-slate-300"
+                                                className="inline-flex items-center gap-1 bg-slate-950 border border-slate-800 px-2 py-0.5 rounded-full text-[10px] font-extrabold text-slate-300"
                                             >
                                                 <span
                                                     className="w-2 h-2 rounded-full border border-white/20 shrink-0"
@@ -830,23 +892,24 @@ function KDSTicketCard({
                 ) : (
                     <span className="text-slate-500 font-medium">Consumo presencial</span>
                 )}
-                <span className="font-black text-stone-200 text-sm shrink-0">
+                <span className="font-black text-amber-300 text-sm shrink-0">
                     {formatCurrency(parseFloat(order.total))}
                 </span>
             </div>
 
-            {/* Ticket Action Footer: Invoice Button + Trash Button + Advance Stage */}
-            <div className="pt-1 flex items-center gap-2">
-                {/* Print/View Invoice Button */}
+            {/* Ticket Action Footer: grid fija — nada se desborda, todo táctil ≥48px */}
+            <div className="pt-1 grid grid-cols-[52px_52px_1fr] gap-2">
+                {/* Direct Thermal Print Button (RawBT, 1 tap) */}
                 <button
                     type="button"
-                    onClick={onOpenInvoice}
-                    className="p-3 bg-slate-800 hover:bg-slate-700 text-stone-200 border border-slate-700 rounded-xl transition-colors cursor-pointer active:scale-95 relative"
-                    title={pendingPrint ? 'Factura pendiente de impresión térmica — ábrela y toca Térmica' : 'Ver e Imprimir Factura'}
+                    onClick={onPrintThermal}
+                    aria-label="Imprimir factura en térmica"
+                    className="min-h-12 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl transition-colors cursor-pointer active:scale-95 relative flex items-center justify-center"
+                    title={pendingPrint ? 'Imprimir factura pendiente en térmica' : 'Imprimir factura en térmica'}
                 >
-                    <Printer className="w-5 h-5 text-amber-400" />
+                    <Printer className="w-5 h-5 text-amber-400" aria-hidden="true" />
                     {pendingPrint && (
-                        <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-rose-500 border-2 border-slate-900 animate-pulse" />
+                        <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-rose-500 border-2 border-slate-950 motion-reduce:animate-none animate-pulse" />
                     )}
                 </button>
 
@@ -855,10 +918,11 @@ function KDSTicketCard({
                     type="button"
                     onClick={onCancel}
                     disabled={isUpdating}
-                    className="p-3 bg-slate-800 hover:bg-rose-950 text-slate-400 hover:text-rose-300 border border-slate-700/80 hover:border-rose-800/60 rounded-xl transition-colors cursor-pointer active:scale-95 disabled:opacity-50"
+                    aria-label="Cancelar pedido"
+                    className="min-h-12 bg-slate-800 hover:bg-rose-950 text-slate-400 hover:text-rose-300 border border-slate-700 hover:border-rose-800/60 rounded-xl transition-colors cursor-pointer active:scale-95 disabled:opacity-50 flex items-center justify-center"
                     title="Cancelar pedido"
                 >
-                    <Trash2 className="w-5 h-5" />
+                    <Trash2 className="w-5 h-5" aria-hidden="true" />
                 </button>
 
                 {/* Next Stage Advance Button */}
@@ -866,14 +930,14 @@ function KDSTicketCard({
                     type="button"
                     onClick={onNext}
                     disabled={isUpdating}
-                    className="flex-1 bg-stone-100 hover:bg-stone-200 text-slate-950 font-black py-3 px-4 rounded-xl shadow-md transition-all cursor-pointer active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2 text-xs sm:text-sm border border-stone-200"
+                    className="min-h-12 min-w-0 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black px-3 rounded-xl shadow-md transition-colors cursor-pointer active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-1.5 text-xs border border-amber-300"
                 >
                     {isUpdating ? (
-                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <RefreshCw className="w-4 h-4 motion-reduce:animate-none animate-spin" aria-hidden="true" />
                     ) : (
                         <>
-                            <span>{nextLabel}</span>
-                            <ArrowRight className="w-4 h-4" />
+                            <span className="truncate">{nextLabel}</span>
+                            <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
                         </>
                     )}
                 </button>
@@ -884,8 +948,8 @@ function KDSTicketCard({
 
 function EmptyColumnMessage({ text }: { text: string }) {
     return (
-        <div className="py-12 px-4 text-center border-2 border-dashed border-slate-800/60 rounded-2xl bg-slate-900/30">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">{text}</p>
+        <div className="py-12 px-4 text-center border-2 border-dashed border-slate-800 rounded-2xl bg-slate-950/60">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{text}</p>
         </div>
     )
 }

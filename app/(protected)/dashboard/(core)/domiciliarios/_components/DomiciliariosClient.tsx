@@ -26,6 +26,7 @@ import {
   updateDeliveryDriver,
   deleteDeliveryDriver,
   toggleDeliveryDriverStatus,
+  getDriverSettlements,
   CreateDriverInput,
 } from "../../_actions/domiciliarios";
 
@@ -78,6 +79,8 @@ interface LogItem {
   orderId: number;
   driverId: string;
   orderTotal: number;
+  paymentMethod?: string | null;
+  driverEarning?: number;
   notes?: string | null;
   createdAt: string | Date;
   driver: {
@@ -107,12 +110,21 @@ export default function DomiciliariosClient({
   initialKpis,
   initialLogs,
 }: DomiciliariosClientProps) {
-  const [activeTab, setActiveTab] = useState<"drivers" | "kpis" | "logs">("drivers");
+  const [activeTab, setActiveTab] = useState<"drivers" | "kpis" | "settle" | "logs">("drivers");
   const [drivers, setDrivers] = useState<Driver[]>(initialDrivers);
   const [kpis, setKpis] = useState<KPIProps>(initialKpis);
   const [logs, setLogs] = useState<LogItem[]>(initialLogs);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDriverFilter, setSelectedDriverFilter] = useState<string>("all");
+
+  // Liquidación state
+  type SettlePeriod = "day" | "week" | "month";
+  const [settlePeriod, setSettlePeriod] = useState<SettlePeriod>("day");
+  const [settleDriver, setSettleDriver] = useState<string>("all");
+  const [settlement, setSettlement] = useState<Awaited<
+    ReturnType<typeof getDriverSettlements>
+  > | null>(null);
+  const [settleLoading, setSettleLoading] = useState(false);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -146,6 +158,79 @@ export default function DomiciliariosClient({
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+
+  // ── Liquidación: rango Hoy / Semana (lun→hoy) / Mes (día 1→hoy) ──
+  const rangeForPeriod = (p: "day" | "week" | "month") => {
+    const now = new Date();
+    const from = new Date(now);
+    if (p === "day") {
+      from.setHours(0, 0, 0, 0);
+    } else if (p === "week") {
+      const dowMon0 = (now.getDay() + 6) % 7;
+      from.setDate(now.getDate() - dowMon0);
+      from.setHours(0, 0, 0, 0);
+    } else {
+      from.setDate(1);
+      from.setHours(0, 0, 0, 0);
+    }
+    return { from: from.toISOString(), to: now.toISOString() };
+  };
+
+  const loadSettlement = async (
+    p: "day" | "week" | "month",
+    driver: string
+  ) => {
+    setSettleLoading(true);
+    try {
+      const { from, to } = rangeForPeriod(p);
+      const data = await getDriverSettlements(
+        from,
+        to,
+        driver === "all" ? undefined : driver
+      );
+      setSettlement(data);
+    } catch {
+      toast.error("No se pudo cargar la liquidación.");
+    } finally {
+      setSettleLoading(false);
+    }
+  };
+
+  const openSettleTab = () => {
+    setActiveTab("settle");
+    loadSettlement(settlePeriod, settleDriver);
+  };
+
+  const changeSettlePeriod = (p: "day" | "week" | "month") => {
+    setSettlePeriod(p);
+    loadSettlement(p, settleDriver);
+  };
+
+  const changeSettleDriver = (driver: string) => {
+    setSettleDriver(driver);
+    loadSettlement(settlePeriod, driver);
+  };
+
+  const paymentBadge = (pm?: string | null) => {
+    const g = pm === "cash" ? "cash" : pm === "card" || pm === "transfer" ? "transfer" : "unknown";
+    if (g === "cash")
+      return (
+        <span className="inline-flex items-center gap-1 text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+          Efectivo
+        </span>
+      );
+    if (g === "transfer")
+      return (
+        <span className="inline-flex items-center gap-1 text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-400 border border-sky-500/30">
+          Transferencia
+        </span>
+      );
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-slate-500/15 text-slate-400 border border-slate-500/30">
+        No registrado
+      </span>
+    );
   };
 
   const handleOpenCreateModal = () => {
@@ -261,6 +346,18 @@ export default function DomiciliariosClient({
         >
           <TrendingUp className="w-4 h-4" />
           KPIs & Desempeño
+        </button>
+
+        <button
+          onClick={openSettleTab}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all ${
+            activeTab === "settle"
+              ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20"
+              : "bg-slate-900/60 text-slate-400 hover:text-white hover:bg-slate-800/60"
+          }`}
+        >
+          <DollarSign className="w-4 h-4" />
+          Liquidación
         </button>
 
         <button
@@ -530,6 +627,203 @@ export default function DomiciliariosClient({
         </div>
       )}
 
+      {/* TAB: LIQUIDACIÓN POR DOMICILIARIO */}
+      {activeTab === "settle" && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+            <div className="grid grid-cols-3 gap-2" role="group" aria-label="Período">
+              {(
+                [
+                  { id: "day", label: "Hoy" },
+                  { id: "week", label: "Semana" },
+                  { id: "month", label: "Mes" },
+                ] as const
+              ).map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => changeSettlePeriod(p.id)}
+                  aria-pressed={settlePeriod === p.id}
+                  className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+                    settlePeriod === p.id
+                      ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20"
+                      : "bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            <select
+              value={settleDriver}
+              onChange={(e) => changeSettleDriver(e.target.value)}
+              className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500"
+              aria-label="Filtrar por domiciliario"
+            >
+              <option value="all">Todos los domiciliarios</option>
+              {drivers
+                .filter((d) => d.active)
+                .map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          {settleLoading || !settlement ? (
+            <div className="p-12 text-center rounded-2xl bg-slate-900/40 border border-slate-800 text-sm text-slate-400">
+              {settleLoading ? "Cargando liquidación..." : "Sin datos."}
+            </div>
+          ) : (
+            <>
+              {/* Totales del período */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
+                  <p className="text-xs font-medium text-slate-400">Domicilios</p>
+                  <p className="text-2xl font-black text-white">{settlement.totals.trips}</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
+                  <p className="text-xs font-medium text-slate-400">Ganancia total</p>
+                  <p className="text-2xl font-black text-emerald-400">
+                    {formatMoney(settlement.totals.earnings)}
+                  </p>
+                </div>
+                <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
+                  <p className="text-xs font-medium text-slate-400">Efectivo</p>
+                  <p className="text-2xl font-black text-white">
+                    {settlement.totals.cashCount}{" "}
+                    <span className="text-xs font-bold text-slate-500">dom.</span>
+                  </p>
+                </div>
+                <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
+                  <p className="text-xs font-medium text-slate-400">Transferencia</p>
+                  <p className="text-2xl font-black text-white">
+                    {settlement.totals.transferCount}{" "}
+                    <span className="text-xs font-bold text-slate-500">dom.</span>
+                  </p>
+                  {settlement.totals.unknownCount > 0 && (
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      + {settlement.totals.unknownCount} no registrado(s)
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Por domiciliario */}
+              {settlement.settlements.length === 0 ? (
+                <div className="p-12 text-center rounded-2xl bg-slate-900/40 border border-slate-800">
+                  <Bike className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                  <h3 className="text-base font-bold text-slate-300">
+                    Sin domicilios en este período
+                  </h3>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {settlement.settlements.map((s) => {
+                    const total = s.trips || 1;
+                    return (
+                      <div
+                        key={s.driverId}
+                        className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center justify-center">
+                              <Bike className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-white">{s.driverName}</h4>
+                              <p className="text-xs text-slate-400">
+                                {s.trips} domicilio(s) · gana {formatMoney(s.earnings)}
+                              </p>
+                            </div>
+                          </div>
+                          <p className="text-xl font-black text-emerald-400">
+                            {formatMoney(s.earnings)}
+                          </p>
+                        </div>
+
+                        {/* Distribución efectivo vs transferencia */}
+                        <div>
+                          <div className="h-3 w-full bg-slate-950 rounded-full overflow-hidden flex border border-slate-800">
+                            <div
+                              className="bg-emerald-500 h-full"
+                              style={{ width: `${(s.cash.count / total) * 100}%` }}
+                              title={`Efectivo: ${s.cash.count}`}
+                            />
+                            <div
+                              className="bg-sky-500 h-full"
+                              style={{ width: `${(s.transfer.count / total) * 100}%` }}
+                              title={`Transferencia: ${s.transfer.count}`}
+                            />
+                            <div
+                              className="bg-slate-600 h-full"
+                              style={{ width: `${(s.unknown.count / total) * 100}%` }}
+                              title={`No registrado: ${s.unknown.count}`}
+                            />
+                          </div>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[11px] font-bold text-slate-400">
+                            <span className="flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                              Efectivo: {s.cash.count} · {formatMoney(s.cash.earnings)}
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-sky-500" />
+                              Transferencia: {s.transfer.count} · {formatMoney(s.transfer.earnings)}
+                            </span>
+                            {s.unknown.count > 0 && (
+                              <span className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-slate-500" />
+                                No registrado: {s.unknown.count} · {formatMoney(s.unknown.earnings)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Historial del domiciliario en el período */}
+                        <div className="overflow-x-auto rounded-xl border border-slate-800">
+                          <table className="w-full text-left text-sm text-slate-300">
+                            <thead className="bg-slate-950 text-xs text-slate-400 uppercase">
+                              <tr>
+                                <th className="p-3">Fecha</th>
+                                <th className="p-3"># Orden</th>
+                                <th className="p-3">Cliente / Dirección</th>
+                                <th className="p-3">Pago</th>
+                                <th className="p-3 text-right">Ganó</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800/60">
+                              {s.details.map((d) => (
+                                <tr key={d.logId} className="hover:bg-slate-800/40 transition">
+                                  <td className="p-3 text-xs text-slate-400 whitespace-nowrap">
+                                    {formatDate(d.date)}
+                                  </td>
+                                  <td className="p-3 font-mono font-bold text-amber-400">
+                                    #{d.orderId}
+                                  </td>
+                                  <td className="p-3 text-xs max-w-55 truncate">
+                                    <span className="text-slate-200 font-bold">{d.buyerName}</span>
+                                    <span className="text-slate-500"> — {d.onSite ? "Local" : d.address}</span>
+                                  </td>
+                                  <td className="p-3">{paymentBadge(d.paymentGroup)}</td>
+                                  <td className="p-3 text-right font-bold text-emerald-400">
+                                    {formatMoney(d.earning)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       {/* TAB 3: LOGS / HISTORIAL */}
       {activeTab === "logs" && (
         <div className="space-y-4">
@@ -568,14 +862,16 @@ export default function DomiciliariosClient({
                     <th className="p-3.5">Domiciliario</th>
                     <th className="p-3.5">Cliente</th>
                     <th className="p-3.5">Dirección / Tipo</th>
+                    <th className="p-3.5">Pago</th>
                     <th className="p-3.5 text-right">Valor Orden</th>
+                    <th className="p-3.5 text-right">Ganó</th>
                     <th className="p-3.5 text-right">Fecha / Hora</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
                   {filteredLogs.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="p-8 text-center text-slate-500">
+                      <td colSpan={8} className="p-8 text-center text-slate-500">
                         No se encontraron registros de envíos.
                       </td>
                     </tr>
@@ -593,8 +889,12 @@ export default function DomiciliariosClient({
                         <td className="p-3.5 text-xs text-slate-400 max-w-xs truncate">
                           {log.order.onSite ? "Consumo Local" : log.order.address}
                         </td>
-                        <td className="p-3.5 text-right font-bold text-emerald-400">
+                        <td className="p-3.5">{paymentBadge(log.paymentMethod)}</td>
+                        <td className="p-3.5 text-right font-bold text-slate-300">
                           {formatMoney(log.orderTotal)}
+                        </td>
+                        <td className="p-3.5 text-right font-bold text-emerald-400">
+                          {formatMoney(log.driverEarning ?? 0)}
                         </td>
                         <td className="p-3.5 text-right text-xs text-slate-400">
                           {formatDate(log.createdAt)}

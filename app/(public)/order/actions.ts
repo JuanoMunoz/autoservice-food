@@ -280,6 +280,8 @@ export async function createOrder(details: OrderDetails): Promise<OrderResponse>
                 buyerEmail: details.buyerEmail || null,
                 tableId: details.tableId || null,
                 status: 'CREATED',
+                paymentMethod: details.paymentType || null,
+                deliveryFee: new Prisma.Decimal(calculatedDeliveryFee),
                 items: {
                     create: details.items.map((item) => ({
                         quantity: item.quantity || 1,
@@ -360,6 +362,8 @@ export async function getOrderDetail(orderId: number): Promise<OrderResponse> {
             status: order.status as any,
             createdAt: order.createdAt.toISOString(),
             updatedAt: order.updatedAt.toISOString(),
+            paymentMethod: order.paymentMethod ?? null,
+            deliveryFee: order.deliveryFee.toString(),
             table: order.table
                 ? { id: order.table.id, number: order.table.number, name: order.table.name }
                 : null,
@@ -452,6 +456,8 @@ export async function getAllActiveOrders(): Promise<OrderResponse[]> {
             status: order.status as any,
             createdAt: order.createdAt.toISOString(),
             updatedAt: order.updatedAt.toISOString(),
+            paymentMethod: order.paymentMethod ?? null,
+            deliveryFee: order.deliveryFee.toString(),
             table: order.table
                 ? { id: order.table.id, number: order.table.number, name: order.table.name }
                 : null,

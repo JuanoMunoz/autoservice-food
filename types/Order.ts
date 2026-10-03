@@ -94,6 +94,10 @@ export interface OrderResponse {
     buyerPhone?: string
     buyerEmail?: string
     status: OrderStatus
+    /** cash | card | transfer — null/undefined = no registrado */
+    paymentMethod?: string | null
+    /** Valor del domicilio cobrado en la orden (0 en local) */
+    deliveryFee?: string
     createdAt: string
     updatedAt: string
     table?: {

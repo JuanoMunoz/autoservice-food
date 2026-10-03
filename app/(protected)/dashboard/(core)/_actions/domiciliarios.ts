@@ -146,7 +146,8 @@ export async function toggleDeliveryDriverStatus(id: string) {
 export async function completeOrderWithDriver(
   orderId: number,
   driverId?: string | null,
-  notes?: string
+  notes?: string,
+  paymentMethod?: string | null
 ) {
   await requireRole(["SUPER_ADMIN", "ADMIN"]);
 
@@ -158,13 +159,21 @@ export async function completeOrderWithDriver(
     throw new Error("Pedido no encontrado.");
   }
 
-  // Update order status to COMPLETED
+  const normalizedPayment =
+    paymentMethod === "cash" || paymentMethod === "card" || paymentMethod === "transfer"
+      ? paymentMethod
+      : order.paymentMethod ?? null;
+
+  // Update order status to COMPLETED (guarda el pago si la orden no lo tenía)
   const updatedOrder = await prisma.order.update({
     where: { id: orderId },
-    data: { status: "COMPLETED" },
+    data: {
+      status: "COMPLETED",
+      ...(order.paymentMethod ? {} : { paymentMethod: normalizedPayment }),
+    },
   });
 
-  // If driver assigned, create delivery log
+  // If driver assigned, create delivery log with earning snapshot
   if (driverId) {
     const driver = await prisma.deliveryDriver.findUnique({ where: { id: driverId } });
     if (driver) {
@@ -174,6 +183,8 @@ export async function completeOrderWithDriver(
           driverId,
           orderTotal: order.total,
           notes: notes?.trim() || null,
+          paymentMethod: normalizedPayment,
+          driverEarning: order.onSite ? 0 : order.deliveryFee,
         },
       });
     }
@@ -210,6 +221,7 @@ export async function getDeliveryLogs(driverId?: string, limit = 50) {
   const formattedLogs = logs.map((log) => ({
     ...log,
     orderTotal: Number(log.orderTotal),
+    driverEarning: Number(log.driverEarning),
     order: {
       ...log.order,
       total: Number(log.order.total),
@@ -288,4 +300,117 @@ export async function getDomiciliariosKPIs() {
     topDriver: driverStats.length > 0 && driverStats[0].trips > 0 ? driverStats[0] : null,
     drivers: driverStats,
   });
+}
+
+export type SettlementPaymentGroup = "cash" | "transfer" | "unknown";
+
+export interface SettlementDetail {
+  logId: string;
+  orderId: number;
+  buyerName: string;
+  address: string;
+  onSite: boolean;
+  paymentGroup: SettlementPaymentGroup;
+  earning: number;
+  date: string;
+}
+
+export interface DriverSettlement {
+  driverId: string;
+  driverName: string;
+  trips: number;
+  earnings: number;
+  cash: { count: number; earnings: number };
+  transfer: { count: number; earnings: number };
+  unknown: { count: number; earnings: number };
+  details: SettlementDetail[];
+}
+
+/** Agrupa card+transfer como transferencia; null/otros = no registrado */
+export function groupPaymentMethod(pm?: string | null): SettlementPaymentGroup {
+  if (pm === "cash") return "cash";
+  if (pm === "card" || pm === "transfer") return "transfer";
+  return "unknown";
+}
+
+/**
+ * Liquidación por domiciliario en un rango [fromISO, toISO].
+ * Ganancia = driverEarning snapshot (valor del domicilio al despachar).
+ */
+export async function getDriverSettlements(fromISO: string, toISO: string, driverId?: string) {
+  await requireRole(["SUPER_ADMIN", "ADMIN"]);
+
+  const from = new Date(fromISO);
+  const to = new Date(toISO);
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+    throw new Error("Rango de fechas inválido.");
+  }
+
+  const logs = await prisma.deliveryLog.findMany({
+    where: {
+      createdAt: { gte: from, lte: to },
+      ...(driverId ? { driverId } : {}),
+    },
+    include: {
+      driver: { select: { id: true, name: true } },
+      order: {
+        select: {
+          id: true,
+          buyerName: true,
+          address: true,
+          onSite: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 2000,
+  });
+
+  const byDriver = new Map<string, DriverSettlement>();
+  for (const log of logs) {
+    const earning = Number(log.driverEarning);
+    const group = groupPaymentMethod(log.paymentMethod);
+    let entry = byDriver.get(log.driverId);
+    if (!entry) {
+      entry = {
+        driverId: log.driverId,
+        driverName: log.driver.name,
+        trips: 0,
+        earnings: 0,
+        cash: { count: 0, earnings: 0 },
+        transfer: { count: 0, earnings: 0 },
+        unknown: { count: 0, earnings: 0 },
+        details: [],
+      };
+      byDriver.set(log.driverId, entry);
+    }
+    entry.trips += 1;
+    entry.earnings += earning;
+    entry[group].count += 1;
+    entry[group].earnings += earning;
+    entry.details.push({
+      logId: log.id,
+      orderId: log.orderId,
+      buyerName: log.order.buyerName,
+      address: log.order.address,
+      onSite: log.order.onSite,
+      paymentGroup: group,
+      earning,
+      date: log.createdAt.toISOString(),
+    });
+  }
+
+  const settlements = [...byDriver.values()].sort((a, b) => b.earnings - a.earnings);
+  const totals = settlements.reduce(
+    (acc, s) => ({
+      trips: acc.trips + s.trips,
+      earnings: acc.earnings + s.earnings,
+      cashCount: acc.cashCount + s.cash.count,
+      transferCount: acc.transferCount + s.transfer.count,
+      unknownCount: acc.unknownCount + s.unknown.count,
+    }),
+    { trips: 0, earnings: 0, cashCount: 0, transferCount: 0, unknownCount: 0 }
+  );
+
+  return serializePrisma({ settlements, totals, from: from.toISOString(), to: to.toISOString() });
 }

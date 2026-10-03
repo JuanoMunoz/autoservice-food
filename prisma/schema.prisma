@@ -129,6 +129,10 @@ model Order {
   updatedAt    DateTime      @updatedAt
   items        OrderItem[]
   deliveryLogs DeliveryLog[]
+  // Método de pago elegido al crear: cash | card | transfer (null = no registrado)
+  paymentMethod String?
+  // Valor del domicilio cobrado en la orden (0 en consumo local)
+  deliveryFee Decimal @default(0)
 
   @@index([tableId])
 }
@@ -330,6 +334,10 @@ model DeliveryLog {
   orderTotal Decimal
   notes      String?
   createdAt  DateTime       @default(now())
+  // Snapshot del método de pago al despachar: cash | card | transfer | null
+  paymentMethod String?
+  // Ganancia del domiciliario = valor del domicilio al despachar
+  driverEarning Decimal @default(0)
 
   @@index([orderId])
   @@index([driverId])

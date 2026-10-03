@@ -17,8 +17,6 @@ import {
   Package,
   RefreshCw,
   Award,
-  CheckCircle2,
-  XCircle,
   AlertTriangle,
   PieChart,
   BarChart3,
@@ -75,7 +73,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
               <TrendingUp className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl lg:text-3xl font-saira font-extrabold tracking-tight text-stone-100 flex items-center gap-2">
+              <h1 className="text-2xl lg:text-3xl font-saira font-extrabold tracking-tight text-slate-100 flex items-center gap-2">
                 Panel de KPIs & Métricas
               </h1>
               <p className="text-xs lg:text-sm text-slate-400 font-medium">
@@ -93,7 +91,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
           <button
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-stone-100 rounded-xl font-bold text-xs transition-all border border-slate-700 disabled:opacity-50 cursor-pointer shadow-md"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-100 rounded-xl font-bold text-xs transition-all border border-slate-700 disabled:opacity-50 cursor-pointer shadow-md"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-secondary" : ""}`} />
             {isRefreshing ? "Cargando..." : "Actualizar"}
@@ -105,20 +103,17 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
         {/* 1. VENTA DEL DÍA */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 p-5 rounded-2xl border border-slate-800 shadow-xl group hover:border-emerald-500/40 transition-all">
-          <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
-            <DollarSign className="w-32 h-32 text-emerald-400" />
-          </div>
-          <div className="flex items-center justify-between mb-3">
+        <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-xl">
+                    <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               Venta del Día
             </span>
-            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <div className="p-2 rounded-xl bg-secondary/15 text-secondary border border-secondary/30">
               <DollarSign className="w-5 h-5" />
             </div>
           </div>
-          <div className="text-2xl lg:text-3xl font-saira font-black text-stone-100 tracking-tight mb-2">
+          <div className="text-2xl lg:text-3xl font-saira font-black text-slate-100 tracking-tight mb-2">
             {formatCurrency(data.todaySales)}
           </div>
           <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
@@ -137,20 +132,17 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
         </div>
 
         {/* 2. VENTA DE LA SEMANA */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 p-5 rounded-2xl border border-slate-800 shadow-xl group hover:border-amber-500/40 transition-all">
-          <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
-            <Calendar className="w-32 h-32 text-amber-400" />
-          </div>
-          <div className="flex items-center justify-between mb-3">
+        <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-xl">
+                    <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-amber-400" />
+              <Calendar className="w-3.5 h-3.5 text-secondary" />
               Venta de la Semana
             </span>
-            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            <div className="p-2 rounded-xl bg-secondary/15 text-secondary border border-secondary/30">
               <Calendar className="w-5 h-5" />
             </div>
           </div>
-          <div className="text-2xl lg:text-3xl font-saira font-black text-stone-100 tracking-tight mb-2">
+          <div className="text-2xl lg:text-3xl font-saira font-black text-slate-100 tracking-tight mb-2">
             {formatCurrency(data.weekSales)}
           </div>
           <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
@@ -169,20 +161,17 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
         </div>
 
         {/* 3. VENTA DEL MES */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 p-5 rounded-2xl border border-slate-800 shadow-xl group hover:border-blue-500/40 transition-all">
-          <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
-            <TrendingUp className="w-32 h-32 text-blue-400" />
-          </div>
-          <div className="flex items-center justify-between mb-3">
+        <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-xl">
+                    <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+              <Sparkles className="w-3.5 h-3.5 text-secondary" />
               Venta del Mes
             </span>
-            <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+            <div className="p-2 rounded-xl bg-secondary/15 text-secondary border border-secondary/30">
               <TrendingUp className="w-5 h-5" />
             </div>
           </div>
-          <div className="text-2xl lg:text-3xl font-saira font-black text-stone-100 tracking-tight mb-2">
+          <div className="text-2xl lg:text-3xl font-saira font-black text-slate-100 tracking-tight mb-2">
             {formatCurrency(data.monthSales)}
           </div>
           <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
@@ -201,20 +190,17 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
         </div>
 
         {/* 4. TICKET PROMEDIO (AOV) */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 p-5 rounded-2xl border border-slate-800 shadow-xl group hover:border-purple-500/40 transition-all">
-          <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
-            <ShoppingBag className="w-32 h-32 text-purple-400" />
-          </div>
-          <div className="flex items-center justify-between mb-3">
+        <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-xl">
+                    <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <ShoppingBag className="w-3.5 h-3.5 text-purple-400" />
+              <ShoppingBag className="w-3.5 h-3.5 text-secondary" />
               Ticket Promedio
             </span>
-            <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+            <div className="p-2 rounded-xl bg-secondary/15 text-secondary border border-secondary/30">
               <ShoppingBag className="w-5 h-5" />
             </div>
           </div>
-          <div className="text-2xl lg:text-3xl font-saira font-black text-stone-100 tracking-tight mb-2">
+          <div className="text-2xl lg:text-3xl font-saira font-black text-slate-100 tracking-tight mb-2">
             {formatCurrency(data.averageOrderValue)}
           </div>
           <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
@@ -282,7 +268,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
             {/* ESTADO DE PEDIDOS (FUNNEL) */}
             <div className="lg:col-span-2 bg-slate-900/80 p-6 rounded-2xl border border-slate-800 shadow-xl backdrop-blur-md space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-saira font-bold text-stone-100 flex items-center gap-2">
+                <h2 className="text-lg font-saira font-bold text-slate-100 flex items-center gap-2">
                   <PieChart className="w-5 h-5 text-secondary" />
                   Distribución por Estado de Pedidos
                 </h2>
@@ -327,7 +313,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
                     <span className="w-2 h-2 rounded-full bg-emerald-500" />
                     Completados
                   </span>
-                  <p className="text-xl font-black text-stone-100">{data.ordersByStatus.COMPLETED}</p>
+                  <p className="text-xl font-black text-slate-100">{data.ordersByStatus.COMPLETED}</p>
                 </div>
 
                 <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800/80">
@@ -335,7 +321,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
                     <span className="w-2 h-2 rounded-full bg-blue-500" />
                     En Entrega
                   </span>
-                  <p className="text-xl font-black text-stone-100">{data.ordersByStatus.DELIVERING}</p>
+                  <p className="text-xl font-black text-slate-100">{data.ordersByStatus.DELIVERING}</p>
                 </div>
 
                 <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800/80">
@@ -343,7 +329,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
                     <span className="w-2 h-2 rounded-full bg-amber-500" />
                     Preparando
                   </span>
-                  <p className="text-xl font-black text-stone-100">{data.ordersByStatus.PREPARING}</p>
+                  <p className="text-xl font-black text-slate-100">{data.ordersByStatus.PREPARING}</p>
                 </div>
 
                 <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800/80">
@@ -351,7 +337,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
                     <span className="w-2 h-2 rounded-full bg-purple-500" />
                     Nuevos
                   </span>
-                  <p className="text-xl font-black text-stone-100">{data.ordersByStatus.CREATED}</p>
+                  <p className="text-xl font-black text-slate-100">{data.ordersByStatus.CREATED}</p>
                 </div>
 
                 <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800/80">
@@ -370,7 +356,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
                     <AlertTriangle className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-stone-200">Tasa de Cancelación de Pedidos</p>
+                    <p className="text-xs font-bold text-slate-200">Tasa de Cancelación de Pedidos</p>
                     <p className="text-[11px] text-slate-400">Porcentaje de pedidos anulados sobre el total</p>
                   </div>
                 </div>
@@ -385,7 +371,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
             {/* CONSUMO EN LOCAL VS PARA LLEVAR */}
             <div className="bg-slate-900/80 p-6 rounded-2xl border border-slate-800 shadow-xl backdrop-blur-md flex flex-col justify-between space-y-4">
               <div>
-                <h2 className="text-lg font-saira font-bold text-stone-100 flex items-center gap-2 mb-2">
+                <h2 className="text-lg font-saira font-bold text-slate-100 flex items-center gap-2 mb-2">
                   <Utensils className="w-5 h-5 text-secondary" />
                   Modalidad de Consumo
                 </h2>
@@ -398,7 +384,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
                 {/* EN LOCAL */}
                 <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800">
                   <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs font-bold text-stone-200 flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-200 flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-secondary" />
                       En Local (Mesa)
                     </span>
@@ -406,7 +392,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
                       {data.diningMode.onSitePercent.toFixed(1)}%
                     </span>
                   </div>
-                  <div className="text-lg font-black text-stone-100">
+                  <div className="text-lg font-black text-slate-100">
                     {formatCurrency(data.diningMode.onSiteSales)}
                   </div>
                   <div className="text-[11px] font-semibold text-slate-400 mt-1">
@@ -417,7 +403,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
                 {/* PARA LLEVAR */}
                 <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800">
                   <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs font-bold text-stone-200 flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-200 flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-blue-400" />
                       Para Llevar / Domicilio
                     </span>
@@ -425,7 +411,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
                       {(100 - data.diningMode.onSitePercent).toFixed(1)}%
                     </span>
                   </div>
-                  <div className="text-lg font-black text-stone-100">
+                  <div className="text-lg font-black text-slate-100">
                     {formatCurrency(data.diningMode.toGoSales)}
                   </div>
                   <div className="text-[11px] font-semibold text-slate-400 mt-1">
@@ -436,7 +422,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
 
               <div className="pt-2 border-t border-slate-800 text-center">
                 <p className="text-xs font-bold text-slate-400">
-                  Venta Total Acumulada: <span className="text-stone-100 font-extrabold">{formatCurrency(data.totalSales)}</span>
+                  Venta Total Acumulada: <span className="text-slate-100 font-extrabold">{formatCurrency(data.totalSales)}</span>
                 </p>
               </div>
             </div>
@@ -452,7 +438,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
           {/* TOP COMIDAS */}
           <div className="bg-slate-900/80 p-6 rounded-2xl border border-slate-800 shadow-xl backdrop-blur-md space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-saira font-bold text-stone-100 flex items-center gap-2">
+              <h2 className="text-lg font-saira font-bold text-slate-100 flex items-center gap-2">
                 <Utensils className="w-5 h-5 text-secondary" />
                 Top 5 Comidas Más Vendidas
               </h2>
@@ -470,7 +456,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
                           <span className={`w-6 h-6 rounded-lg flex items-center justify-center font-black text-xs shrink-0 ${
-                            idx === 0 ? "bg-amber-400 text-slate-950" : idx === 1 ? "bg-slate-300 text-slate-950" : idx === 2 ? "bg-amber-700 text-stone-100" : "bg-slate-800 text-slate-400"
+                            idx === 0 ? "bg-amber-400 text-slate-950" : idx === 1 ? "bg-slate-300 text-slate-950" : idx === 2 ? "bg-amber-700 text-slate-100" : "bg-slate-800 text-slate-400"
                           }`}>
                             #{idx + 1}
                           </span>
@@ -482,13 +468,13 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
                             </div>
                           )}
                           <div>
-                            <p className="text-sm font-bold text-stone-100 leading-tight">{prod.name}</p>
+                            <p className="text-sm font-bold text-slate-100 leading-tight">{prod.name}</p>
                             <p className="text-[11px] text-slate-400">{formatCurrency(prod.price)} / un.</p>
                           </div>
                         </div>
 
                         <div className="text-right">
-                          <span className="text-sm font-black text-stone-100 block">{prod.totalQuantity} un.</span>
+                          <span className="text-sm font-black text-slate-100 block">{prod.totalQuantity} un.</span>
                           <span className="text-xs font-semibold text-emerald-400">{formatCurrency(prod.totalRevenue)}</span>
                         </div>
                       </div>
@@ -507,7 +493,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
           {/* TOP BEBIDAS */}
           <div className="bg-slate-900/80 p-6 rounded-2xl border border-slate-800 shadow-xl backdrop-blur-md space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-saira font-bold text-stone-100 flex items-center gap-2">
+              <h2 className="text-lg font-saira font-bold text-slate-100 flex items-center gap-2">
                 <GlassWater className="w-5 h-5 text-blue-400" />
                 Top 5 Bebidas Más Vendidas
               </h2>
@@ -537,13 +523,13 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
                             </div>
                           )}
                           <div>
-                            <p className="text-sm font-bold text-stone-100 leading-tight">{drink.name}</p>
+                            <p className="text-sm font-bold text-slate-100 leading-tight">{drink.name}</p>
                             <p className="text-[11px] text-slate-400">{formatCurrency(drink.price)} / un.</p>
                           </div>
                         </div>
 
                         <div className="text-right">
-                          <span className="text-sm font-black text-stone-100 block">{drink.totalQuantity} un.</span>
+                          <span className="text-sm font-black text-slate-100 block">{drink.totalQuantity} un.</span>
                           <span className="text-xs font-semibold text-blue-400">{formatCurrency(drink.totalRevenue)}</span>
                         </div>
                       </div>
@@ -561,7 +547,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
 
           {/* SALSAS PREFERIDAS */}
           <div className="bg-slate-900/80 p-6 rounded-2xl border border-slate-800 shadow-xl backdrop-blur-md space-y-4">
-            <h2 className="text-lg font-saira font-bold text-stone-100 flex items-center gap-2">
+            <h2 className="text-lg font-saira font-bold text-slate-100 flex items-center gap-2">
               <Flame className="w-5 h-5 text-amber-500" />
               Salsas Favoritas de los Clientes
             </h2>
@@ -577,7 +563,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
                         className="w-4 h-4 rounded-full border border-white/20 shadow-md shrink-0"
                         style={{ backgroundColor: sauce.hex }}
                       />
-                      <span className="text-xs font-bold text-stone-200">{sauce.name}</span>
+                      <span className="text-xs font-bold text-slate-200">{sauce.name}</span>
                     </div>
                     <span className="text-xs font-black text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
                       {sauce.count} solicitadas
@@ -590,7 +576,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
 
           {/* EXTRAS / TOPPINGS MÁS PEDIDOS */}
           <div className="bg-slate-900/80 p-6 rounded-2xl border border-slate-800 shadow-xl backdrop-blur-md space-y-4">
-            <h2 className="text-lg font-saira font-bold text-stone-100 flex items-center gap-2">
+            <h2 className="text-lg font-saira font-bold text-slate-100 flex items-center gap-2">
               <Package className="w-5 h-5 text-emerald-400" />
               Ingredientes Extra & Toppings
             </h2>
@@ -602,13 +588,13 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
                 data.topExtras.map((extra) => (
                   <div key={extra.id} className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 flex items-center justify-between">
                     <div>
-                      <p className="text-xs font-bold text-stone-200">{extra.name}</p>
+                      <p className="text-xs font-bold text-slate-200">{extra.name}</p>
                       <span className="text-[10px] text-slate-400 uppercase font-semibold">
                         {extra.type === "FOOD" ? "Comida" : "Bebida"} · {formatCurrency(extra.price)} c/u
                       </span>
                     </div>
                     <div className="text-right">
-                      <span className="text-xs font-black text-stone-100 block">{extra.totalQuantity} añadidos</span>
+                      <span className="text-xs font-black text-slate-100 block">{extra.totalQuantity} añadidos</span>
                       <span className="text-[11px] font-bold text-emerald-400">{formatCurrency(extra.totalRevenue)}</span>
                     </div>
                   </div>
@@ -632,7 +618,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
               </div>
               <div>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Hora de Mayor Demanda (Hora Pico)</p>
-                <p className="text-xl font-saira font-extrabold text-stone-100">
+                <p className="text-xl font-saira font-extrabold text-slate-100">
                   {maxHour.label} hs ({maxHour.ordersCount} pedidos)
                 </p>
                 <p className="text-xs text-amber-400 font-semibold">{formatCurrency(maxHour.salesTotal)} en esta hora</p>
@@ -645,7 +631,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
               </div>
               <div>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Día Más Concurrido de la Semana</p>
-                <p className="text-xl font-saira font-extrabold text-stone-100">
+                <p className="text-xl font-saira font-extrabold text-slate-100">
                   {maxDay.day} ({maxDay.ordersCount} pedidos)
                 </p>
                 <p className="text-xs text-blue-400 font-semibold">{formatCurrency(maxDay.salesTotal)} acumulado</p>
@@ -655,7 +641,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
 
           {/* GRÁFICO HORAS PICO (00 a 23h) */}
           <div className="bg-slate-900/80 p-6 rounded-2xl border border-slate-800 shadow-xl backdrop-blur-md space-y-4">
-            <h2 className="text-lg font-saira font-bold text-stone-100 flex items-center gap-2">
+            <h2 className="text-lg font-saira font-bold text-slate-100 flex items-center gap-2">
               <Clock className="w-5 h-5 text-secondary" />
               Volumen de Pedidos por Hora del Día (00:00 a 23:00)
             </h2>
@@ -667,7 +653,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
                 return (
                   <div key={item.hour} className="flex-1 min-w-[20px] flex flex-col items-center gap-1 group relative">
                     {/* Tooltip */}
-                    <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-950 text-[10px] text-stone-100 font-bold px-2 py-1 rounded shadow border border-slate-800 pointer-events-none whitespace-nowrap z-20">
+                    <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-950 text-[10px] text-slate-100 font-bold px-2 py-1 rounded shadow border border-slate-800 pointer-events-none whitespace-nowrap z-20">
                       {item.label}: {item.ordersCount} ped. ({formatCurrency(item.salesTotal)})
                     </div>
 
@@ -690,7 +676,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
 
           {/* GRÁFICO DÍAS DE LA SEMANA */}
           <div className="bg-slate-900/80 p-6 rounded-2xl border border-slate-800 shadow-xl backdrop-blur-md space-y-4">
-            <h2 className="text-lg font-saira font-bold text-stone-100 flex items-center gap-2">
+            <h2 className="text-lg font-saira font-bold text-slate-100 flex items-center gap-2">
               <Calendar className="w-5 h-5 text-secondary" />
               Ventas por Día de la Semana
             </h2>
@@ -704,11 +690,11 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
                     isTopDay ? "bg-secondary/15 border-secondary/40" : "bg-slate-950/60 border-slate-800"
                   }`}>
                     <div>
-                      <span className="text-xs font-bold text-stone-200 block">{dayItem.day}</span>
+                      <span className="text-xs font-bold text-slate-200 block">{dayItem.day}</span>
                       <span className="text-[11px] font-bold text-slate-400">{dayItem.ordersCount} pedidos</span>
                     </div>
 
-                    <div className="text-sm font-black text-stone-100">
+                    <div className="text-sm font-black text-slate-100">
                       {formatCurrency(dayItem.salesTotal)}
                     </div>
 
@@ -730,7 +716,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
           
           {/* TOP MESAS */}
           <div className="bg-slate-900/80 p-6 rounded-2xl border border-slate-800 shadow-xl backdrop-blur-md space-y-4">
-            <h2 className="text-lg font-saira font-bold text-stone-100 flex items-center gap-2">
+            <h2 className="text-lg font-saira font-bold text-slate-100 flex items-center gap-2">
               <Table className="w-5 h-5 text-secondary" />
               Mesas con Mayor Frecuencia de Consumo
             </h2>
@@ -746,7 +732,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
                         #{table.tableNumber}
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-stone-100">Mesa N° {table.tableNumber}</p>
+                        <p className="text-xs font-bold text-slate-100">Mesa N° {table.tableNumber}</p>
                         <p className="text-[11px] text-slate-400">{table.ordersCount} pedidos atendidos</p>
                       </div>
                     </div>
@@ -761,7 +747,7 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
 
           {/* INVENTARIO / SALUD DEL MENÚ */}
           <div className="bg-slate-900/80 p-6 rounded-2xl border border-slate-800 shadow-xl backdrop-blur-md space-y-4">
-            <h2 className="text-lg font-saira font-bold text-stone-100 flex items-center gap-2">
+            <h2 className="text-lg font-saira font-bold text-slate-100 flex items-center gap-2">
               <Layers className="w-5 h-5 text-secondary" />
               Catálogo de Menú Activo
             </h2>
@@ -769,32 +755,32 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
             <div className="grid grid-cols-2 gap-3">
               <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800">
                 <Utensils className="w-5 h-5 text-secondary mb-2" />
-                <p className="text-2xl font-black text-stone-100">{data.menuStats.totalProductsCount}</p>
+                <p className="text-2xl font-black text-slate-100">{data.menuStats.totalProductsCount}</p>
                 <p className="text-xs font-semibold text-slate-400">Productos / Comidas</p>
               </div>
 
               <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800">
                 <GlassWater className="w-5 h-5 text-blue-400 mb-2" />
-                <p className="text-2xl font-black text-stone-100">{data.menuStats.totalDrinksCount}</p>
+                <p className="text-2xl font-black text-slate-100">{data.menuStats.totalDrinksCount}</p>
                 <p className="text-xs font-semibold text-slate-400">Bebidas Heladas</p>
               </div>
 
               <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800">
                 <Package className="w-5 h-5 text-emerald-400 mb-2" />
-                <p className="text-2xl font-black text-stone-100">{data.menuStats.totalIngredientsCount}</p>
+                <p className="text-2xl font-black text-slate-100">{data.menuStats.totalIngredientsCount}</p>
                 <p className="text-xs font-semibold text-slate-400">Ingredientes & Extras</p>
               </div>
 
               <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800">
                 <Flame className="w-5 h-5 text-amber-500 mb-2" />
-                <p className="text-2xl font-black text-stone-100">{data.menuStats.totalSaucesCount}</p>
+                <p className="text-2xl font-black text-slate-100">{data.menuStats.totalSaucesCount}</p>
                 <p className="text-xs font-semibold text-slate-400">Salsas de la Casa</p>
               </div>
             </div>
 
             {/* AUDIT LOG SUMMARY */}
             <div className="pt-2 border-t border-slate-800 space-y-2">
-              <p className="text-xs font-bold text-stone-200">Actividad de Auditoría del Menú (Staff)</p>
+              <p className="text-xs font-bold text-slate-200">Actividad de Auditoría del Menú (Staff)</p>
               <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-400">
                 <span className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                   {data.auditStats.createCount} Creados

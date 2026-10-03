@@ -50,6 +50,7 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
     const [isCalculatingFee, setIsCalculatingFee] = useState(false)
     const [coords, setCoords] = useState<{ lat: number; lng: number } | undefined>(undefined)
     const [isMapOpen, setIsMapOpen] = useState(false)
+    const [paymentType, setPaymentType] = useState<'cash' | 'transfer'>('cash')
 
     const [isSearching, startSearch] = useTransition()
     const [isSaving, startSaving] = useTransition()
@@ -239,7 +240,7 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
                         reference: (contact.reference || '').trim(),
                         coordinates: coords,
                     },
-                    paymentType: 'cash',
+                    paymentType,
                     total: finalTotal,
                 })
                 toast.success(`Orden #${order.id} creada correctamente`)
@@ -251,8 +252,14 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-sm">
-            <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-sm"
+            onClick={onClose}
+        >
+            <div
+                className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+            >
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
                     <div className="flex items-center gap-3">
@@ -283,6 +290,15 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
                             <div className="mt-3 grid grid-cols-2 gap-2">
                                 <button type="button" onClick={() => updateContact('onSite', true)} className={`rounded-lg border px-3 py-2 text-xs font-black cursor-pointer transition-all ${contact.onSite ? 'border-amber-400 bg-amber-500 text-slate-950 shadow-sm' : 'border-slate-700 text-slate-400 hover:bg-slate-900'}`}>En el local</button>
                                 <button type="button" onClick={() => updateContact('onSite', false)} className={`rounded-lg border px-3 py-2 text-xs font-black cursor-pointer transition-all ${!contact.onSite ? 'border-amber-400 bg-amber-500 text-slate-950 shadow-sm' : 'border-slate-700 text-slate-400 hover:bg-slate-900'}`}>A domicilio</button>
+                            </div>
+
+                            {/* Payment Method Selection */}
+                            <div className="mt-3">
+                                <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">Método de pago</p>
+                                <div className="grid grid-cols-2 gap-2" role="group" aria-label="Método de pago">
+                                    <button type="button" onClick={() => setPaymentType('cash')} aria-pressed={paymentType === 'cash'} className={`rounded-lg border px-3 py-2 text-xs font-black cursor-pointer transition-all ${paymentType === 'cash' ? 'border-emerald-400 bg-emerald-500 text-slate-950 shadow-sm' : 'border-slate-700 text-slate-400 hover:bg-slate-900'}`}>Efectivo</button>
+                                    <button type="button" onClick={() => setPaymentType('transfer')} aria-pressed={paymentType === 'transfer'} className={`rounded-lg border px-3 py-2 text-xs font-black cursor-pointer transition-all ${paymentType === 'transfer' ? 'border-sky-400 bg-sky-500 text-slate-950 shadow-sm' : 'border-slate-700 text-slate-400 hover:bg-slate-900'}`}>Transferencia</button>
+                                </div>
                             </div>
 
                             {/* Delivery Address & Fee Breakdown */}

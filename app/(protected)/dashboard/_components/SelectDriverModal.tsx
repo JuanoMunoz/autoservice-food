@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Bike, Check, User, X, MapPin, DollarSign, Store } from 'lucide-react';
+import { Bike, Check, User, X, MapPin, Store } from 'lucide-react';
 import { getActiveDeliveryDrivers } from '../(core)/_actions/domiciliarios';
 import { OrderResponse } from '@/types/Order';
 import { formatCurrency } from '@/utils/cartStorage';
@@ -18,7 +18,7 @@ interface SelectDriverModalProps {
   order: OrderResponse | null;
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (driverId: string | null, notes?: string) => Promise<void>;
+  onConfirm: (driverId: string | null, notes?: string, paymentMethod?: string) => Promise<void>;
 }
 
 export default function SelectDriverModal({
@@ -30,12 +30,18 @@ export default function SelectDriverModal({
   const [drivers, setDrivers] = useState<ActiveDriver[]>([]);
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('cash');
   const [isLoadingDrivers, setIsLoadingDrivers] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
+      // intencionado: fetch-on-open clásico; el loading vive en el ciclo de la promesa
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsLoadingDrivers(true);
+      // Prefill del pago con el registrado en la orden (card cuenta como transferencia)
+      const pm = order?.paymentMethod;
+      setPaymentMethod(pm === 'card' || pm === 'transfer' ? 'transfer' : 'cash');
       getActiveDeliveryDrivers()
         .then((data) => {
           setDrivers(data || []);
@@ -52,7 +58,7 @@ export default function SelectDriverModal({
       setNotes('');
       setSelectedDriverId(null);
     }
-  }, [isOpen]);
+  }, [isOpen, order]);
 
   if (!isOpen || !order) return null;
 
@@ -60,7 +66,7 @@ export default function SelectDriverModal({
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await onConfirm(selectedDriverId, notes);
+      await onConfirm(selectedDriverId, notes, paymentMethod);
       onClose();
     } catch (err) {
       console.error('Error in select driver confirmation:', err);
@@ -70,8 +76,14 @@ export default function SelectDriverModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-5 select-none">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-5 select-none"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-4">
           <div className="flex items-center gap-3">
@@ -197,6 +209,36 @@ export default function SelectDriverModal({
                   );
                 })}
               </div>
+            )}
+          </div>
+
+          {/* Optional Delivery Notes */}
+          <div>
+            <label className="block text-xs font-bold text-slate-300 mb-2">
+              Método de pago del domicilio:
+            </label>
+            <div className="grid grid-cols-2 gap-2" role="group" aria-label="Método de pago">
+              <button
+                type="button"
+                onClick={() => setPaymentMethod('cash')}
+                aria-pressed={paymentMethod === 'cash'}
+                className={`rounded-xl border px-3 py-2.5 text-xs font-black cursor-pointer transition-all ${paymentMethod === 'cash' ? 'border-emerald-400 bg-emerald-500 text-slate-950' : 'border-slate-800 text-slate-400 hover:bg-slate-900'}`}
+              >
+                Efectivo
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMethod('transfer')}
+                aria-pressed={paymentMethod === 'transfer'}
+                className={`rounded-xl border px-3 py-2.5 text-xs font-black cursor-pointer transition-all ${paymentMethod === 'transfer' ? 'border-sky-400 bg-sky-500 text-slate-950' : 'border-slate-800 text-slate-400 hover:bg-slate-900'}`}
+              >
+                Transferencia
+              </button>
+            </div>
+            {selectedDriverId && !order.onSite && (
+              <p className="mt-2 text-xs font-bold text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2">
+                El domiciliario gana {formatCurrency(parseFloat(order.deliveryFee || '0'))} por este domicilio
+              </p>
             )}
           </div>
 

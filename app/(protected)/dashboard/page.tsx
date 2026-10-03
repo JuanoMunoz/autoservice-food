@@ -18,9 +18,10 @@ export default async function DashboardPage() {
     ])
 
     return (
-        <div className="p-4 lg:p-8 space-y-6 max-w-7xl mx-auto font-sans">
-
-            <DashboardPageClient initialOrders={initialOrders} catalog={catalog} />
+        <div className="bg-slate-950 min-h-full flex-1">
+            <div className="p-4 lg:p-8 space-y-6 max-w-7xl mx-auto font-sans">
+                <DashboardPageClient initialOrders={initialOrders} catalog={catalog} />
+            </div>
         </div>
     )
 }
