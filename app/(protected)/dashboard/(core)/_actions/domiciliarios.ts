@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { groupPaymentMethod, type SettlementPaymentGroup } from "@/lib/payment-groups";
 import { requireRole, runWithAuditContext } from "@/utils/auth";
 import { revalidatePath } from "next/cache";
 import { serializePrisma } from "@/utils/serializePrisma";
@@ -302,7 +303,7 @@ export async function getDomiciliariosKPIs() {
   });
 }
 
-export type SettlementPaymentGroup = "cash" | "transfer" | "unknown";
+export type { SettlementPaymentGroup };
 
 export interface SettlementDetail {
   logId: string;
@@ -326,12 +327,7 @@ export interface DriverSettlement {
   details: SettlementDetail[];
 }
 
-/** Agrupa card+transfer como transferencia; null/otros = no registrado */
-export function groupPaymentMethod(pm?: string | null): SettlementPaymentGroup {
-  if (pm === "cash") return "cash";
-  if (pm === "card" || pm === "transfer") return "transfer";
-  return "unknown";
-}
+/** Agrupa card+transfer como transferencia; null/otros = no registrado (ver lib/payment-groups) */
 
 /**
  * Liquidación por domiciliario en un rango [fromISO, toISO].

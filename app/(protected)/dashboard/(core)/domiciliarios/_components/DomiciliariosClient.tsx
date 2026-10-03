@@ -29,6 +29,7 @@ import {
   getDriverSettlements,
   CreateDriverInput,
 } from "../../_actions/domiciliarios";
+import { groupPaymentMethod } from "@/lib/payment-groups";
 
 interface Driver {
   id: string;
@@ -213,7 +214,7 @@ export default function DomiciliariosClient({
   };
 
   const paymentBadge = (pm?: string | null) => {
-    const g = pm === "cash" ? "cash" : pm === "card" || pm === "transfer" ? "transfer" : "unknown";
+    const g = groupPaymentMethod(pm);
     if (g === "cash")
       return (
         <span className="inline-flex items-center gap-1 text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
