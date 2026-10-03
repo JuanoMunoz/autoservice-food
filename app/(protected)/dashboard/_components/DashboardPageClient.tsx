@@ -239,21 +239,24 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                         },
                     )
 
-                    // Todas las nuevas entran a pendientes de térmica
-                    const newIds = brandNewOrders.map((o) => o.id)
-                    setPendingPrints((prev) => [...prev, ...newIds.filter((id) => !prev.includes(id))])
-
                     if (autoPrintRef.current) {
-                        // Intento silencioso (sin fallback): si Chrome lo bloquea
-                        // por falta de gesto, quedan en pendientes sin romper nada
+                        // Intento silencioso (sin fallback): solo entra a
+                        // pendientes si el envío falla de verdad
                         for (const order of brandNewOrders) {
                             try {
-                                tryAutoPrintRawbt(order)
+                                await tryAutoPrintRawbt(order)
                             } catch (err) {
                                 console.error('Error auto-print RawBT:', err)
+                                setPendingPrints((prev) =>
+                                    prev.includes(order.id) ? prev : [...prev, order.id]
+                                )
                             }
                         }
                         setInvoiceModalOrder(latestNewOrder)
+                    } else {
+                        // Sin auto: todas quedan pendientes de impresión manual
+                        const newIds = brandNewOrders.map((o) => o.id)
+                        setPendingPrints((prev) => [...prev, ...newIds.filter((id) => !prev.includes(id))])
                     }
                 }
 
@@ -362,9 +365,9 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
         setPendingPrints((prev) => prev.filter((id) => id !== orderId))
     }, [])
 
-    const handleThermalPrint = (order: OrderResponse) => {
+    const handleThermalPrint = async (order: OrderResponse) => {
         try {
-            printOrderViaRawbt(order)
+            await printOrderViaRawbt(order)
             markPrinted(order.id)
             toast.success(`Factura #${order.id} enviada a RawBT`)
         } catch (e) {
@@ -377,7 +380,7 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
     }
 
     // Imprime toda la cola pendiente (un intent por factura, con gesto válido)
-    const handlePrintPending = () => {
+    const handlePrintPending = async () => {
         if (pendingPrints.length === 0 || isPrintingThermal) return
         setIsPrintingThermal(true)
         try {
@@ -385,7 +388,7 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
             const modalOrder = invoiceModalOrder
             for (const id of pendingPrints) {
                 const order = byId.get(id) ?? (modalOrder?.id === id ? modalOrder : undefined)
-                if (order) printOrderViaRawbt(order)
+                if (order) await printOrderViaRawbt(order)
             }
             setPendingPrints([])
             toast.success('Facturas pendientes enviadas a RawBT')

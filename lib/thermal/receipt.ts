@@ -1,6 +1,7 @@
 'use client'
 
 import type { OrderResponse } from '@/types/Order'
+import { buildLogoRaster } from './logo'
 
 /** Ancho ticket 58mm en Font A: 32 columnas */
 export const THERMAL_COLS = 32
@@ -244,4 +245,27 @@ export function receiptBytesToBase64(bytes: Uint8Array): string {
         binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK))
     }
     return btoa(binary)
+}
+
+/**
+ * Ticket completo para la impresora: logo raster (si carga) + factura texto.
+ * Si el logo falla, sale solo el texto — nunca bloquea la impresión.
+ */
+export async function buildTicketBytes(order: OrderResponse): Promise<Uint8Array> {
+    const parts: Uint8Array[] = []
+    try {
+        const logo = await buildLogoRaster()
+        if (logo) parts.push(logo)
+    } catch {
+        /* sin logo */
+    }
+    parts.push(buildReceiptBytes(order))
+    const total = parts.reduce((n, p) => n + p.length, 0)
+    const out = new Uint8Array(total)
+    let offset = 0
+    for (const p of parts) {
+        out.set(p, offset)
+        offset += p.length
+    }
+    return out
 }
