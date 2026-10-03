@@ -7,7 +7,7 @@ import type { AdminOrderCatalog } from '@/types/AdminOrder'
 import { updateOrderStatus, cancelOrder, getAllActiveOrders, getOrderDetail } from '@/app/(public)/order/actions'
 import { formatCurrency } from '@/utils/cartStorage'
 import { usePrinter } from '@/app/_hooks/use-printer'
-import { useThermalPrinter } from '@/app/_hooks/use-thermal-printer'
+import { printOrderViaRawbt, tryAutoPrintRawbt } from '@/lib/thermal/rawbt'
 import CreateOrderModal from './CreateOrderModal'
 import SelectDriverModal from './SelectDriverModal'
 import InvoiceReceipt from '@/app/_components/InvoiceReceipt'
@@ -28,8 +28,7 @@ import {
     Printer,
     FileText,
     UserPlus,
-    Bluetooth,
-    BluetoothOff
+    Bluetooth
 } from 'lucide-react'
 
 interface DashboardPageClientProps {
@@ -39,22 +38,31 @@ interface DashboardPageClientProps {
 
 export default function DashboardPageClient({ initialOrders, catalog }: DashboardPageClientProps) {
     const { print, isPrinting } = usePrinter()
-    const thermal = useThermalPrinter()
 
     const [orders, setOrders] = useState<OrderResponse[]>(initialOrders)
     const [isConnected, setIsConnected] = useState(false)
     const [soundEnabled, setSoundEnabled] = useState(true)
-    const [autoPrint, setAutoPrint] = useState(true)
+    // Auto-impresión RawBT por defecto (persistida)
+    const [autoPrint, setAutoPrint] = useState<boolean>(() => {
+        if (typeof window === 'undefined') return true
+        return window.localStorage.getItem('cheesepapas-rawbt-autoprint') !== '0'
+    })
     const [updatingId, setIsUpdatingId] = useState<number | null>(null)
     const [cancelModalOrder, setCancelModalOrder] = useState<OrderResponse | null>(null)
     const [invoiceModalOrder, setInvoiceModalOrder] = useState<OrderResponse | null>(null)
     const [driverModalOrder, setDriverModalOrder] = useState<OrderResponse | null>(null)
     const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false)
     const [now, setNow] = useState<number>(() => Date.now())
+    // Facturas pendientes de impresión térmica (ids)
+    const [pendingPrints, setPendingPrints] = useState<number[]>([])
+    const [isPrintingThermal, setIsPrintingThermal] = useState(false)
 
     const autoPrintRef = useRef(autoPrint)
     useEffect(() => {
         autoPrintRef.current = autoPrint
+        try {
+            window.localStorage.setItem('cheesepapas-rawbt-autoprint', autoPrint ? '1' : '0')
+        } catch { }
     }, [autoPrint])
 
     const soundEnabledRef = useRef(soundEnabled)
@@ -68,7 +76,6 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
         new Map(initialOrders.map((o) => [o.id, o]))
     )
     const locallyProcessedIdsRef = useRef<Set<number>>(new Set())
-    const pendingAutoPrintOrderRef = useRef<OrderResponse | null>(null)
 
     // User interaction listener to unlock Web Audio API Context
     useEffect(() => {
@@ -146,16 +153,9 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
         }
     }, [])
 
-    // Effect to trigger print after invoice modal renders
-    useEffect(() => {
-        if (invoiceModalOrder && pendingAutoPrintOrderRef.current?.id === invoiceModalOrder.id) {
-            pendingAutoPrintOrderRef.current = null
-            const timer = setTimeout(() => {
-                print()
-            }, 400)
-            return () => clearTimeout(timer)
-        }
-    }, [invoiceModalOrder, print])
+    // Sin window.print automático: la auto-impresión térmica va por RawBT
+    // directo en el polling (esquema sin fallback: si Chrome lo bloquea por
+    // falta de gesto, la orden queda en pendientes sin romper el dashboard)
 
     // Live Timer Ticker every second for KDS elapsed timers
     useEffect(() => {
@@ -209,19 +209,36 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                 knownActiveOrdersMapRef.current = currentActiveMap
                 setOrders(activeOrders)
 
-                // Trigger sound, toast, and auto-print for new orders
+                // Trigger sound, toast, and RawBT auto-print for new orders
                 if (brandNewOrders.length > 0) {
                     playNotificationSound()
 
                     const latestNewOrder = brandNewOrders[brandNewOrders.length - 1]
 
-                    toast.success(`NUEVO PEDIDO #${latestNewOrder.id}`, {
-                        description: `Cliente: ${latestNewOrder.buyerName || 'Cliente'} — Total: ${formatCurrency(parseFloat(latestNewOrder.total))}`,
-                        duration: 5000,
-                    })
+                    toast.success(
+                        brandNewOrders.length > 1
+                            ? `${brandNewOrders.length} NUEVOS PEDIDOS (últ: #${latestNewOrder.id})`
+                            : `NUEVO PEDIDO #${latestNewOrder.id}`,
+                        {
+                            description: `Cliente: ${latestNewOrder.buyerName || 'Cliente'} — Total: ${formatCurrency(parseFloat(latestNewOrder.total))}`,
+                            duration: 5000,
+                        },
+                    )
+
+                    // Todas las nuevas entran a pendientes de térmica
+                    const newIds = brandNewOrders.map((o) => o.id)
+                    setPendingPrints((prev) => [...prev, ...newIds.filter((id) => !prev.includes(id))])
 
                     if (autoPrintRef.current) {
-                        pendingAutoPrintOrderRef.current = latestNewOrder
+                        // Intento silencioso (sin fallback): si Chrome lo bloquea
+                        // por falta de gesto, quedan en pendientes sin romper nada
+                        for (const order of brandNewOrders) {
+                            try {
+                                tryAutoPrintRawbt(order)
+                            } catch (err) {
+                                console.error('Error auto-print RawBT:', err)
+                            }
+                        }
                         setInvoiceModalOrder(latestNewOrder)
                     }
                 }
@@ -325,43 +342,46 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
         }
     }
 
-    // Thermal (BLE) printer handlers — DIG-C58 por Bluetooth, sin apps ni cable
-    const handleThermalConnect = async () => {
-        try {
-            await thermal.connect()
-            toast.success('Impresora térmica conectada', {
-                description: 'Ya puedes imprimir facturas con el botón Térmica.',
-                duration: 4000,
-            })
-        } catch (e) {
-            toast.error('No se pudo conectar', {
-                description: e instanceof Error ? e.message : 'Intenta de nuevo.',
-                duration: 5000,
-            })
-        }
-    }
+    // Impresión térmica vía RawBT (DIG-C58 por SPP; requiere app RawBT instalada
+    // y la impresora conectada ahí). El tap es el gesto que Chrome exige.
+    const markPrinted = useCallback((orderId: number) => {
+        setPendingPrints((prev) => prev.filter((id) => id !== orderId))
+    }, [])
 
-    const handleThermalTest = async () => {
+    const handleThermalPrint = (order: OrderResponse) => {
         try {
-            await thermal.printTest()
-            toast.success('Prueba enviada a la térmica')
+            printOrderViaRawbt(order)
+            markPrinted(order.id)
+            toast.success(`Factura #${order.id} enviada a RawBT`)
         } catch (e) {
-            toast.error('Falló la prueba', {
-                description: e instanceof Error ? e.message : 'Revisa la conexión.',
-                duration: 5000,
-            })
-        }
-    }
-
-    const handleThermalPrint = async (order: OrderResponse) => {
-        try {
-            await thermal.printOrder(order)
-            toast.success(`Factura #${order.id} enviada a la térmica`)
-        } catch (e) {
+            setPendingPrints((prev) => (prev.includes(order.id) ? prev : [...prev, order.id]))
             toast.error(`No se pudo imprimir #${order.id}`, {
-                description: e instanceof Error ? e.message : 'Revisa la conexión.',
+                description: e instanceof Error ? e.message : 'Revisa RawBT.',
                 duration: 5000,
             })
+        }
+    }
+
+    // Imprime toda la cola pendiente (un intent por factura, con gesto válido)
+    const handlePrintPending = () => {
+        if (pendingPrints.length === 0 || isPrintingThermal) return
+        setIsPrintingThermal(true)
+        try {
+            const byId = new Map(orders.map((o) => [o.id, o]))
+            const modalOrder = invoiceModalOrder
+            for (const id of pendingPrints) {
+                const order = byId.get(id) ?? (modalOrder?.id === id ? modalOrder : undefined)
+                if (order) printOrderViaRawbt(order)
+            }
+            setPendingPrints([])
+            toast.success('Facturas pendientes enviadas a RawBT')
+        } catch (e) {
+            toast.error('Falló el envío a RawBT', {
+                description: e instanceof Error ? e.message : 'Revisa RawBT.',
+                duration: 5000,
+            })
+        } finally {
+            setIsPrintingThermal(false)
         }
     }
 
@@ -393,53 +413,24 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                 </div>
 
                 <div className="flex items-center gap-3">
-                    {thermal.isSupported ? (
-                        thermal.isConnected ? (
-                            <div className="flex items-center gap-2">
-                                <span
-                                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold bg-sky-950 text-sky-300 border-sky-800/60"
-                                    title={thermal.deviceName || 'Impresora térmica conectada'}
-                                >
-                                    <Bluetooth className="w-4 h-4" />
-                                    <span className="max-w-28 truncate">
-                                        {thermal.status === 'printing' ? 'Imprimiendo...' : (thermal.deviceName || 'Térmica OK')}
-                                    </span>
-                                </span>
-                                <button
-                                    onClick={handleThermalTest}
-                                    disabled={thermal.isBusy}
-                                    className="px-2.5 py-1.5 rounded-xl border text-xs font-bold bg-slate-800 text-stone-200 border-slate-700 hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50"
-                                    title="Enviar ticket de prueba a la térmica"
-                                >
-                                    Probar
-                                </button>
-                                <button
-                                    onClick={thermal.disconnect}
-                                    className="p-1.5 rounded-xl border text-xs bg-slate-900 text-slate-500 border-slate-800 hover:bg-slate-850 transition-colors cursor-pointer"
-                                    title="Desconectar impresora térmica"
-                                >
-                                    <BluetoothOff className="w-4 h-4" />
-                                </button>
-                            </div>
-                        ) : (
-                            <button
-                                onClick={handleThermalConnect}
-                                disabled={thermal.isBusy}
-                                className="flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-colors cursor-pointer bg-sky-950 text-sky-300 border-sky-800 hover:bg-sky-900 disabled:opacity-50"
-                                title="Vincular impresora térmica Bluetooth (DIG-C58)"
-                            >
-                                <Bluetooth className="w-4 h-4" />
-                                <span>{thermal.status === 'connecting' ? 'Buscando...' : 'Conectar térmica'}</span>
-                            </button>
-                        )
-                    ) : (
-                        <span
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold bg-slate-900 text-slate-500 border-slate-800"
-                            title="Este navegador no soporta WebBluetooth. Usa Chrome en Android."
+                    <span
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold bg-sky-950 text-sky-300 border-sky-800/60"
+                        title="Impresión térmica por app RawBT (DIG-C58 por Bluetooth). Instala RawBT y conecta ahí la impresora una sola vez."
+                    >
+                        <Bluetooth className="w-4 h-4" />
+                        <span>RawBT</span>
+                    </span>
+
+                    {pendingPrints.length > 0 && (
+                        <button
+                            onClick={handlePrintPending}
+                            disabled={isPrintingThermal}
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-black transition-colors cursor-pointer bg-rose-600 text-white border-rose-500 hover:bg-rose-500 animate-pulse disabled:opacity-50"
+                            title="Enviar a RawBT todas las facturas pendientes"
                         >
-                            <BluetoothOff className="w-4 h-4" />
-                            <span>BT no soportado</span>
-                        </span>
+                            <FileText className="w-4 h-4" />
+                            <span>Imprimir pendientes ({pendingPrints.length})</span>
+                        </button>
                     )}
 
                     <button
@@ -457,10 +448,10 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                             ? 'bg-amber-500 text-white font-black border-amber-400 shadow-sm'
                             : 'bg-slate-900 text-slate-500 border-slate-800 hover:bg-slate-850'
                             }`}
-                        title="Imprimir automáticamente la factura cuando llegue un nuevo pedido"
+                        title="Enviar a RawBT la factura cuando llegue un nuevo pedido (activado por defecto)"
                     >
                         <Printer className="w-4 h-4" />
-                        <span>{autoPrint ? 'Auto-Imprimir Facturas ON' : 'Auto-Imprimir OFF'}</span>
+                        <span>{autoPrint ? 'Auto-Térmica ON' : 'Auto-Térmica OFF'}</span>
                     </button>
 
                     <button
@@ -503,6 +494,7 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                                     onNext={() => handleNextStage(order)}
                                     onCancel={() => setCancelModalOrder(order)}
                                     onOpenInvoice={() => setInvoiceModalOrder(order)}
+                                    pendingPrint={pendingPrints.includes(order.id)}
                                     nextLabel="Iniciar Preparación"
                                 />
                             ))
@@ -536,6 +528,7 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                                     onNext={() => handleNextStage(order)}
                                     onCancel={() => setCancelModalOrder(order)}
                                     onOpenInvoice={() => setInvoiceModalOrder(order)}
+                                    pendingPrint={pendingPrints.includes(order.id)}
                                     nextLabel="Marcar Listo"
                                 />
                             ))
@@ -569,6 +562,7 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                                     onNext={() => handleNextStage(order)}
                                     onCancel={() => setCancelModalOrder(order)}
                                     onOpenInvoice={() => setInvoiceModalOrder(order)}
+                                    pendingPrint={pendingPrints.includes(order.id)}
                                     nextLabel="Entregado / Finalizar"
                                 />
                             ))
@@ -634,12 +628,11 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                                 <button
                                     type="button"
                                     onClick={() => invoiceModalOrder && handleThermalPrint(invoiceModalOrder)}
-                                    disabled={!thermal.isConnected || thermal.isBusy}
-                                    className="bg-sky-700 hover:bg-sky-600 disabled:opacity-50 text-white px-3 py-1.5 rounded-sm font-black text-xs flex items-center gap-1.5 shadow-sm cursor-pointer active:scale-95 transition-all"
-                                    title={thermal.isConnected ? 'Enviar factura a la térmica Bluetooth' : 'Primero conecta la térmica con el botón "Conectar térmica"'}
+                                    className="bg-sky-700 hover:bg-sky-600 text-white px-3 py-1.5 rounded-sm font-black text-xs flex items-center gap-1.5 shadow-sm cursor-pointer active:scale-95 transition-all"
+                                    title="Enviar factura a la térmica por RawBT (requiere app RawBT instalada)"
                                 >
                                     <Bluetooth className="w-4 h-4" />
-                                    <span>{thermal.status === 'printing' ? 'Enviando...' : 'Térmica'}</span>
+                                    <span>Térmica</span>
                                 </button>
                                 <button
                                     type="button"
@@ -695,6 +688,7 @@ interface KDSTicketCardProps {
     onNext: () => void
     onCancel: () => void
     onOpenInvoice: () => void
+    pendingPrint?: boolean
     nextLabel: string
 }
 
@@ -705,6 +699,7 @@ function KDSTicketCard({
     onNext,
     onCancel,
     onOpenInvoice,
+    pendingPrint,
     nextLabel,
 }: KDSTicketCardProps) {
     const isLate = elapsed.totalMins >= 10
@@ -846,10 +841,13 @@ function KDSTicketCard({
                 <button
                     type="button"
                     onClick={onOpenInvoice}
-                    className="p-3 bg-slate-800 hover:bg-slate-700 text-stone-200 border border-slate-700 rounded-xl transition-colors cursor-pointer active:scale-95"
-                    title="Ver e Imprimir Factura"
+                    className="p-3 bg-slate-800 hover:bg-slate-700 text-stone-200 border border-slate-700 rounded-xl transition-colors cursor-pointer active:scale-95 relative"
+                    title={pendingPrint ? 'Factura pendiente de impresión térmica — ábrela y toca Térmica' : 'Ver e Imprimir Factura'}
                 >
                     <Printer className="w-5 h-5 text-amber-400" />
+                    {pendingPrint && (
+                        <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-rose-500 border-2 border-slate-900 animate-pulse" />
+                    )}
                 </button>
 
                 {/* Trash/Cancel Button */}
