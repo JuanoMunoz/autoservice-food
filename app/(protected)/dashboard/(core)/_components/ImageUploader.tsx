@@ -22,15 +22,15 @@ export function ImageUploader({ value, onChange, label = "Imagen" }: ImageUpload
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <label className="text-xs uppercase tracking-wider text-neutral-400 font-semibold">
+        <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
           {label}
         </label>
 
         <label className="flex items-center gap-2 cursor-pointer group">
-          <div className={`flex items-center justify-center w-5 h-5 rounded border transition-colors ${shouldRemoveBg ? 'bg-violet-600 border-violet-600' : 'bg-neutral-900 border-neutral-700 group-hover:border-neutral-500'}`}>
-            {shouldRemoveBg && <Wand2 size={12} className="text-white" />}
+          <div className={`flex items-center justify-center w-5 h-5 rounded border transition-colors ${shouldRemoveBg ? 'bg-amber-500 border-amber-500' : 'bg-slate-950 border-slate-700 group-hover:border-slate-500'}`}>
+            {shouldRemoveBg && <Wand2 size={12} className="text-slate-950" />}
           </div>
-          <span className="text-xs text-neutral-300 group-hover:text-neutral-200 transition-colors">
+          <span className="text-xs text-slate-300 group-hover:text-slate-200 transition-colors">
             Quitar fondo automáticamente (IA)
           </span>
           <input
@@ -43,7 +43,7 @@ export function ImageUploader({ value, onChange, label = "Imagen" }: ImageUpload
       </div>
 
       {displayUrl && !processing && (
-        <div className="relative w-full h-40 rounded-xl border border-neutral-800 overflow-hidden bg-neutral-950 bg-[radial-gradient(circle,_#333_1px,_transparent_1px)] bg-[size:12px_12px]">
+        <div className="relative w-full h-40 rounded-xl border border-slate-800 overflow-hidden bg-slate-950">
           <Image
             src={displayUrl}
             alt="Preview"
@@ -56,7 +56,7 @@ export function ImageUploader({ value, onChange, label = "Imagen" }: ImageUpload
             onClick={() => {
               onChange("");
             }}
-            className="absolute top-2 right-2 p-1.5 bg-black/70 hover:bg-black text-neutral-400 hover:text-white rounded-full transition-colors cursor-pointer"
+            className="absolute top-2 right-2 p-1.5 bg-black/70 hover:bg-black text-slate-400 hover:text-white rounded-full transition-colors cursor-pointer"
             title="Quitar imagen"
           >
             <X size={14} />
@@ -68,7 +68,7 @@ export function ImageUploader({ value, onChange, label = "Imagen" }: ImageUpload
         <div className="w-full relative">
           <UploadDropzone
             endpoint="imageUploader"
-            className={`ut-button:bg-blue-600 ut-button:ut-readying:bg-blue-600/50 ut-button:ut-uploading:bg-blue-600/50 ut-label:text-blue-500 border-neutral-800 bg-neutral-900/50 hover:bg-neutral-900 transition-colors ${processing ? 'opacity-50 pointer-events-none' : ''}`}
+            className={`ut-button:bg-amber-500 ut-button:ut-readying:bg-amber-500/50 ut-button:ut-uploading:bg-amber-500/50 ut-button:text-slate-950 ut-label:text-amber-400 border-slate-800 bg-slate-900/50 hover:bg-slate-900 transition-colors ${processing ? 'opacity-50 pointer-events-none' : ''}`}
             onBeforeUploadBegin={async (files) => {
               setProcessing(true);
               let targetFile = files[0];

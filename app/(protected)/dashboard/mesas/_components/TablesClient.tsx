@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Edit3, Plus, Power, Trash2, X } from "lucide-react";
 import { createTable, deleteTable, toggleTable, updateTable } from "../../_actions/tables";
+import { ConfirmModal } from "../../(core)/_components/ConfirmModal";
 
 interface TableRow {
     id: string;
@@ -24,6 +25,7 @@ export default function TablesClient({ initialData }: TablesClientProps) {
     const [number, setNumber] = useState("");
     const [name, setName] = useState("");
     const [isPending, startTransition] = useTransition();
+    const [deleting, setDeleting] = useState<TableRow | null>(null);
 
     const openCreate = () => {
         setEditing(null);
@@ -75,11 +77,11 @@ export default function TablesClient({ initialData }: TablesClientProps) {
     };
 
     const remove = (table: TableRow) => {
-        if (!window.confirm(`¿Eliminar la mesa ${table.number}?`)) return;
         startTransition(async () => {
             try {
                 await deleteTable(table.id);
                 setData((current) => current.filter((item) => item.id !== table.id));
+                setDeleting(null);
                 toast.success("Mesa eliminada");
             } catch (error) {
                 toast.error(error instanceof Error ? error.message : "No se pudo eliminar la mesa");
@@ -95,40 +97,50 @@ export default function TablesClient({ initialData }: TablesClientProps) {
                 </button>
             </div>
 
-            <div className="overflow-hidden rounded-xl border border-neutral-800 bg-neutral-950/40">
-                <div className="grid grid-cols-[1fr_1.5fr_1fr_auto] gap-4 border-b border-neutral-800 px-5 py-3 text-xs font-black uppercase tracking-wider text-neutral-500">
+            <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/80">
+                <div className="grid grid-cols-[1fr_1.5fr_1fr_auto] gap-4 border-b border-slate-800 px-5 py-3 text-xs font-black uppercase tracking-wider text-slate-400">
                     <span>Mesa</span><span>Nombre</span><span>Estado</span><span>Acciones</span>
                 </div>
                 {data.length === 0 ? (
-                    <p className="px-5 py-10 text-center text-sm text-neutral-500">No hay mesas configuradas.</p>
+                    <p className="px-5 py-10 text-center text-sm text-slate-500">No hay mesas configuradas.</p>
                 ) : data.map((table) => (
-                    <div key={table.id} className="grid grid-cols-[1fr_1.5fr_1fr_auto] items-center gap-4 border-b border-neutral-900 px-5 py-4 last:border-b-0">
-                        <div><p className="font-black text-neutral-100">Mesa {table.number}</p><p className="text-xs text-neutral-500">{table._count.orders} orden(es)</p></div>
-                        <span className="text-sm text-neutral-300">{table.name || "Sin nombre"}</span>
-                        <span className={`w-fit rounded-full border px-2.5 py-1 text-xs font-black ${table.active ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" : "border-neutral-700 bg-neutral-900 text-neutral-500"}`}>
+                    <div key={table.id} className="grid grid-cols-[1fr_1.5fr_1fr_auto] items-center gap-4 border-b border-slate-800/60 px-5 py-4 last:border-b-0">
+                        <div><p className="font-black text-slate-100">Mesa {table.number}</p><p className="text-xs text-slate-500">{table._count.orders} orden(es)</p></div>
+                        <span className="text-sm text-slate-300">{table.name || "Sin nombre"}</span>
+                        <span className={`w-fit rounded-full border px-2.5 py-1 text-xs font-black ${table.active ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" : "border-slate-700 bg-slate-900 text-slate-500"}`}>
                             {table.active ? "Activa" : "Inactiva"}
                         </span>
                         <div className="flex items-center gap-1">
-                            <button type="button" onClick={() => openEdit(table)} className="rounded-md p-2 text-neutral-400 hover:bg-neutral-800 hover:text-white" title="Editar"><Edit3 className="h-4 w-4" /></button>
-                            <button type="button" onClick={() => changeStatus(table)} className="rounded-md p-2 text-neutral-400 hover:bg-neutral-800 hover:text-amber-300" title={table.active ? "Desactivar" : "Activar"}><Power className="h-4 w-4" /></button>
-                            <button type="button" onClick={() => remove(table)} className="rounded-md p-2 text-neutral-400 hover:bg-neutral-800 hover:text-rose-400" title="Eliminar"><Trash2 className="h-4 w-4" /></button>
+                            <button type="button" onClick={() => openEdit(table)} aria-label="Editar" className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white" title="Editar"><Edit3 className="h-4 w-4" /></button>
+                            <button type="button" onClick={() => changeStatus(table)} aria-label={table.active ? "Desactivar" : "Activar"} className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-amber-300" title={table.active ? "Desactivar" : "Activar"}><Power className="h-4 w-4" /></button>
+                            <button type="button" onClick={() => setDeleting(table)} aria-label="Eliminar" className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-rose-400" title="Eliminar"><Trash2 className="h-4 w-4" /></button>
                         </div>
                     </div>
                 ))}
             </div>
 
             {formOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-                    <div className="w-full max-w-md rounded-xl border border-neutral-800 bg-neutral-950 p-5 shadow-2xl">
-                        <div className="mb-5 flex items-center justify-between"><h2 className="text-lg font-black text-white">{editing ? "Editar mesa" : "Nueva mesa"}</h2><button type="button" onClick={() => setFormOpen(false)} className="text-neutral-400 hover:text-white"><X className="h-5 w-5" /></button></div>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setFormOpen(false)}>
+                    <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                        <div className="mb-5 flex items-center justify-between"><h2 className="text-lg font-black text-white">{editing ? "Editar mesa" : "Nueva mesa"}</h2><button type="button" onClick={() => setFormOpen(false)} aria-label="Cerrar" className="text-slate-400 hover:text-white"><X className="h-5 w-5" /></button></div>
                         <div className="space-y-4">
-                            <label className="block text-sm font-bold text-neutral-300">Número<input value={number} onChange={(event) => setNumber(event.target.value)} type="number" min="1" className="mt-1 w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2.5 text-white outline-none focus:border-amber-400" /></label>
-                            <label className="block text-sm font-bold text-neutral-300">Nombre opcional<input value={name} onChange={(event) => setName(event.target.value)} placeholder="Ej. Terraza" className="mt-1 w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2.5 text-white outline-none focus:border-amber-400" /></label>
-                            <button type="button" disabled={isPending} onClick={save} className="w-full rounded-lg bg-amber-500 px-4 py-2.5 font-black text-slate-950 disabled:opacity-50">{isPending ? "Guardando..." : "Guardar mesa"}</button>
+                            <label className="block text-sm font-bold text-slate-300">Número<input value={number} onChange={(event) => setNumber(event.target.value)} type="number" min="1" className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 text-white outline-none focus:border-amber-500" /></label>
+                            <label className="block text-sm font-bold text-slate-300">Nombre opcional<input value={name} onChange={(event) => setName(event.target.value)} placeholder="Ej. Terraza" className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 text-white outline-none focus:border-amber-500 placeholder:text-slate-600" /></label>
+                            <button type="button" disabled={isPending} onClick={save} className="w-full rounded-xl bg-amber-500 px-4 py-2.5 font-black text-slate-950 disabled:opacity-50 min-h-11">{isPending ? "Guardando..." : "Guardar mesa"}</button>
                         </div>
                     </div>
                 </div>
             )}
+
+            <ConfirmModal
+                open={!!deleting}
+                onClose={() => setDeleting(null)}
+                onConfirm={() => deleting && remove(deleting)}
+                isPending={isPending}
+                title={`Eliminar mesa ${deleting?.number ?? ""}`}
+                description="Esta acción no se puede deshacer."
+                confirmLabel="Sí, eliminar"
+            />
         </div>
     );
 }

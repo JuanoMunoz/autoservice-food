@@ -21,13 +21,13 @@ export default async function SetRolePage() {
     return (
         <div className="flex flex-col gap-6 px-5 py-7 lg:px-8 lg:py-8 max-w-4xl">
             <header>
-                <p className="text-xs uppercase tracking-widest mb-0.5" style={{ color: "var(--color-text-muted)" }}>
+                <p className="text-xs uppercase tracking-widest mb-0.5 text-slate-400 font-semibold">
                     Configuración
                 </p>
-                <h1 className="text-2xl font-semibold text-text">
+                <h1 className="text-2xl font-bold text-slate-100">
                     Asignar Roles
                 </h1>
-                <p className="text-sm mt-1" style={{ color: "var(--color-text-muted)" }}>
+                <p className="text-sm mt-1 text-slate-400">
                     Modifica los privilegios de los usuarios del sistema de forma segura.
                 </p>
             </header>

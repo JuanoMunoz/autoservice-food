@@ -22,27 +22,17 @@ function CopyField({ label, value }: { label: string; value: string }) {
 
   return (
     <div className="flex flex-col gap-1">
-      <span
-        className="text-[10px] uppercase tracking-widest"
-        style={{ color: "var(--color-text-muted)" }}
-      >
+      <span className="text-[10px] uppercase tracking-widest text-slate-400">
         {label}
       </span>
-      <div
-        className="flex items-center justify-between gap-2 px-3 py-2 rounded-sm"
-        style={{
-          background: "var(--color-background)",
-          border: "1px solid var(--color-border)",
-        }}
-      >
-        <span className="text-sm font-mono truncate" style={{ color: "var(--color-text)" }}>
+      <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800">
+        <span className="text-sm font-mono truncate text-slate-100">
           {value}
         </span>
         <button
           type="button"
           onClick={copy}
-          className="shrink-0 transition-colors"
-          style={{ color: copied ? "var(--color-primary)" : "var(--color-text-muted)" }}
+          className={`shrink-0 transition-colors ${copied ? "text-amber-400" : "text-slate-400 hover:text-slate-200"}`}
           aria-label={`Copiar ${label}`}
         >
           {copied ? (
@@ -64,27 +54,8 @@ export default function AddUserForm() {
   const [loading, setLoading] = useState(false)
   const [credentials, setCredentials] = useState<Credentials | null>(null)
 
-  const inputStyle: React.CSSProperties = {
-    width: "100%",
-    padding: "0.625rem 0.75rem",
-    fontSize: "0.875rem",
-    background: "var(--color-surface)",
-    color: "var(--color-text)",
-    border: "1px solid var(--color-border)",
-    borderRadius: "4px",
-    outline: "none",
-    fontFamily: "inherit",
-    transition: "border-color 150ms",
-  }
-
-  const focusProps = {
-    onFocus: (e: React.FocusEvent<HTMLInputElement>) => {
-      e.target.style.borderColor = "var(--color-primary)"
-    },
-    onBlur: (e: React.FocusEvent<HTMLInputElement>) => {
-      e.target.style.borderColor = "var(--color-border)"
-    },
-  }
+  const inputClass =
+    "w-full px-3 py-2.5 text-sm bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-600 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/40 transition-colors"
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -134,10 +105,7 @@ export default function AddUserForm() {
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-3">
           <label className="flex flex-col gap-1.5">
-            <span
-              className="text-xs font-medium uppercase tracking-wide"
-              style={{ color: "var(--color-text-muted)" }}
-            >
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
               Nombre
             </span>
             <input
@@ -148,15 +116,11 @@ export default function AddUserForm() {
               placeholder="María"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
-              style={inputStyle}
-              {...focusProps}
+              className={inputClass}
             />
           </label>
           <label className="flex flex-col gap-1.5">
-            <span
-              className="text-xs font-medium uppercase tracking-wide"
-              style={{ color: "var(--color-text-muted)" }}
-            >
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
               Apellido
             </span>
             <input
@@ -167,17 +131,13 @@ export default function AddUserForm() {
               placeholder="García"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
-              style={inputStyle}
-              {...focusProps}
+              className={inputClass}
             />
           </label>
         </div>
 
         <label className="flex flex-col gap-1.5">
-          <span
-            className="text-xs font-medium uppercase tracking-wide"
-            style={{ color: "var(--color-text-muted)" }}
-          >
+          <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
             Correo electrónico
           </span>
           <input
@@ -188,16 +148,12 @@ export default function AddUserForm() {
             placeholder="maria.garcia@test.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            style={inputStyle}
-            {...focusProps}
+            className={inputClass}
           />
         </label>
 
         <label className="flex flex-col gap-1.5">
-          <span
-            className="text-xs font-medium uppercase tracking-wide"
-            style={{ color: "var(--color-text-muted)" }}
-          >
+          <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
             Contraseña
           </span>
           <input
@@ -207,8 +163,7 @@ export default function AddUserForm() {
             placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            style={inputStyle}
-            {...focusProps}
+            className={inputClass}
           />
         </label>
 
@@ -216,13 +171,7 @@ export default function AddUserForm() {
           id="staff-submit"
           type="submit"
           disabled={loading}
-          className="flex items-center justify-center gap-2 w-full py-2.5 px-4 text-sm font-medium rounded-sm transition-all mt-1"
-          style={{
-            background: loading ? "var(--color-border)" : "var(--color-text)",
-            color: "var(--color-surface)",
-            border: "none",
-            cursor: loading ? "not-allowed" : "pointer",
-          }}
+          className="flex items-center justify-center gap-2 w-full py-2.5 px-4 text-sm font-black rounded-xl transition-all mt-1 bg-amber-500 hover:bg-amber-400 text-slate-950 disabled:opacity-50 cursor-pointer min-h-11"
         >
           {loading ? (
             <Loader2 size={15} className="animate-spin" />
@@ -234,25 +183,15 @@ export default function AddUserForm() {
 
       {/* Credenciales generadas */}
       {credentials && (
-        <div
-          className="flex flex-col gap-4 p-4 rounded-sm"
-          style={{
-            background: "var(--color-surface)",
-            border: "1px solid var(--color-border)",
-          }}
-        >
+        <div className="flex flex-col gap-4 p-4 rounded-2xl bg-slate-900 border border-slate-800">
           <div className="flex items-center justify-between">
-            <p
-              className="text-xs uppercase tracking-widest font-medium"
-              style={{ color: "var(--color-accent)" }}
-            >
+            <p className="text-xs uppercase tracking-widest font-medium text-amber-400">
               Credenciales generadas
             </p>
             <button
               type="button"
               onClick={reset}
-              className="flex items-center gap-1.5 text-xs transition-colors"
-              style={{ color: "var(--color-text-muted)" }}
+              className="flex items-center gap-1.5 text-xs transition-colors text-slate-400 hover:text-slate-200"
             >
               <RefreshCw size={11} strokeWidth={1.5} />
               Nuevo
@@ -263,10 +202,7 @@ export default function AddUserForm() {
           <CopyField label="Correo / usuario" value={credentials.email} />
           <CopyField label="Contraseña" value={credentials.password} />
 
-          <p
-            className="text-[11px] mt-1"
-            style={{ color: "var(--color-text-muted)" }}
-          >
+          <p className="text-[11px] mt-1 text-slate-400">
             Miembro registrado en el sistema. Comparte las credenciales de forma segura.
           </p>
         </div>

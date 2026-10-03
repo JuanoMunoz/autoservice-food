@@ -30,12 +30,12 @@ const columns: CrudColumn<Sauce>[] = [
     render: (item) => (
       <div className="flex items-center gap-3">
         <div
-          className="w-8 h-8 rounded-full border border-neutral-700/50 flex items-center justify-center shrink-0 shadow-inner"
+          className="w-8 h-8 rounded-full border border-slate-700/50 flex items-center justify-center shrink-0 shadow-inner"
           style={{ backgroundColor: item.hex }}
         />
         <div>
-          <span className="font-semibold text-neutral-200">{item.name}</span>
-          <span className="block text-[10px] text-neutral-500">
+          <span className="font-semibold text-slate-200">{item.name}</span>
+          <span className="block text-[10px] text-slate-500">
             Creado por: {item.createdBy?.name || "Sistema"}
           </span>
         </div>
@@ -47,11 +47,11 @@ const columns: CrudColumn<Sauce>[] = [
     label: "Código Color (HEX)",
     render: (item) => (
       <div className="flex items-center gap-2">
-        <span className="font-mono text-xs text-neutral-400 bg-neutral-900/60 border border-neutral-800 px-2 py-1 rounded">
+        <span className="font-mono text-xs text-slate-400 bg-slate-950/60 border border-slate-800 px-2 py-1 rounded">
           {item.hex.toUpperCase()}
         </span>
         <span
-          className="w-3.5 h-3.5 rounded-sm border border-neutral-800"
+          className="w-3.5 h-3.5 rounded-sm border border-slate-800"
           style={{ backgroundColor: item.hex }}
         />
       </div>
@@ -61,7 +61,7 @@ const columns: CrudColumn<Sauce>[] = [
     key: "createdAt",
     label: "Fecha de Creación",
     render: (item) => (
-      <span className="text-xs text-neutral-400">
+      <span className="text-xs text-slate-400">
         {item.createdAt.toLocaleDateString("es-ES", {
           day: "2-digit",
           month: "short",
@@ -186,17 +186,19 @@ export function SalsasClient({ initialData }: SalsasClientProps) {
 
       {/* Form Modal */}
       {formOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-md bg-[#18181b] border border-neutral-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm "
+            onClick={() => { setFormOpen(false) }}>
+          <div className="relative w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}>
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-neutral-800 flex items-center justify-between bg-neutral-900/50">
+            <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/50">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <Flame className="text-blue-500" size={18} />
+                <Flame className="text-amber-400" size={18} />
                 {editingItem ? "Editar Salsa" : "Agregar Nueva Salsa"}
               </h3>
               <button
                 onClick={() => setFormOpen(false)}
-                className="p-1 text-neutral-400 hover:text-white rounded-md hover:bg-neutral-800 transition-colors cursor-pointer"
+                className="p-1 text-slate-400 hover:text-white rounded-md hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -205,7 +207,7 @@ export function SalsasClient({ initialData }: SalsasClientProps) {
             {/* Modal Form */}
             <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-5">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs uppercase tracking-wider text-neutral-400 font-semibold">
+                <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
                   Nombre de la salsa
                 </label>
                 <input
@@ -213,13 +215,13 @@ export function SalsasClient({ initialData }: SalsasClientProps) {
                   placeholder="Ej. Salsa rosada, maíz..."
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-sm bg-neutral-900 border border-neutral-800 rounded-lg text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-neutral-700 transition-colors"
+                  className="w-full px-3.5 py-2.5 text-sm bg-slate-950 border border-slate-800 rounded-xl text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-700 transition-colors"
                   required
                 />
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-xs uppercase tracking-wider text-neutral-400 font-semibold">
+                <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
                   Color Identificador (HEX)
                 </label>
                 <div className="flex gap-2">
@@ -229,17 +231,17 @@ export function SalsasClient({ initialData }: SalsasClientProps) {
                       placeholder="#FF0000"
                       value={hex}
                       onChange={(e) => setHex(e.target.value)}
-                      className="w-full pl-3 pr-10 py-2.5 text-sm font-mono bg-neutral-900 border border-neutral-800 rounded-lg text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-neutral-700 transition-colors"
+                      className="w-full pl-3 pr-10 py-2.5 text-sm font-mono bg-slate-950 border border-slate-800 rounded-xl text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-700 transition-colors"
                       required
                     />
                     <div
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border border-neutral-700 shadow-inner"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border border-slate-700 shadow-inner"
                       style={{ backgroundColor: hex }}
                     />
                   </div>
 
 
-                  <div className="relative w-11 h-11 shrink-0 bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden flex items-center justify-center cursor-pointer hover:border-neutral-700 transition-colors">
+                  <div className="relative w-11 h-11 shrink-0 bg-slate-950 border border-slate-800 rounded-xl overflow-hidden flex items-center justify-center cursor-pointer hover:border-slate-700 transition-colors">
                     <input
                       type="color"
                       value={hex}
@@ -247,7 +249,7 @@ export function SalsasClient({ initialData }: SalsasClientProps) {
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     />
                     <span
-                      className="w-6 h-6 rounded-full border border-neutral-800"
+                      className="w-6 h-6 rounded-full border border-slate-800"
                       style={{ backgroundColor: hex }}
                     />
                   </div>
@@ -255,7 +257,7 @@ export function SalsasClient({ initialData }: SalsasClientProps) {
 
 
                 <div className="mt-2 flex flex-col gap-1.5">
-                  <span className="text-[10px] text-neutral-500 font-medium">Colores sugeridos</span>
+                  <span className="text-[10px] text-slate-500 font-medium">Colores sugeridos</span>
                   <div className="flex flex-wrap gap-2">
                     {quickColors.map((color) => (
                       <button
@@ -263,8 +265,8 @@ export function SalsasClient({ initialData }: SalsasClientProps) {
                         type="button"
                         onClick={() => setHex(color)}
                         className={`w-6 h-6 rounded-full border cursor-pointer transition-transform hover:scale-110 active:scale-95 ${hex.toLowerCase() === color.toLowerCase()
-                          ? "border-white ring-2 ring-blue-500 scale-105"
-                          : "border-neutral-800"
+                          ? "border-white ring-2 ring-amber-500 scale-105"
+                          : "border-slate-800"
                           }`}
                         style={{ backgroundColor: color }}
                         title={color}
@@ -275,18 +277,18 @@ export function SalsasClient({ initialData }: SalsasClientProps) {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-3 mt-4 pt-4 border-t border-neutral-800/60">
+              <div className="flex items-center justify-end gap-3 mt-4 pt-4 border-t border-slate-800/60">
                 <button
                   type="button"
                   onClick={() => setFormOpen(false)}
-                  className="px-4 py-2.5 text-sm font-semibold bg-neutral-900 hover:bg-neutral-800 text-neutral-300 rounded-lg transition-colors cursor-pointer"
+                  className="px-4 py-2.5 text-sm font-semibold bg-slate-950 hover:bg-slate-800 text-slate-300 rounded-xl transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={isPending}
-                  className="flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-all duration-200 cursor-pointer shadow-lg shadow-blue-900/20 disabled:opacity-50"
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold bg-amber-500 hover:bg-amber-400 text-white rounded-xl transition-all duration-200 cursor-pointer shadow-lg shadow-blue-900/20 disabled:opacity-50"
                 >
                   {isPending && <Loader2 className="animate-spin" size={14} />}
                   <span>{editingItem ? "Actualizar" : "Guardar Salsa"}</span>

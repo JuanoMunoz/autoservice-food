@@ -16,21 +16,21 @@ export default async function ConfigurationPage() {
             <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                     <p
-                        className="text-xs uppercase tracking-widest mb-0.5 font-semibold"
-                        style={{ color: "var(--color-text-muted)" }}
+                        className="text-xs uppercase tracking-widest mb-0.5 font-semibold text-slate-400"
+                        
                     >
                         Configuración Global
                     </p>
                     <h1
-                        className="text-2xl font-bold flex items-center gap-2"
-                        style={{ color: "var(--color-text)" }}
+                        className="text-2xl font-bold flex items-center gap-2 text-slate-100"
+                        
                     >
-                        <Settings className="text-blue-500" size={24} />
+                        <Settings className="text-amber-400" size={24} />
                         Variables del Sistema
                     </h1>
                     <p
-                        className="text-sm mt-0.5"
-                        style={{ color: "var(--color-text-muted)" }}
+                        className="text-sm mt-0.5 text-slate-400"
+                        
                     >
                         Administra configuraciones y parámetros para toda la aplicación.
                     </p>

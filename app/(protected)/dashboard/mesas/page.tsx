@@ -14,13 +14,13 @@ export default async function TablesPage() {
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-5 py-7 lg:px-8 lg:py-8">
             <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <p className="mb-0.5 text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-text-muted)" }}>
+                    <p className="mb-0.5 text-xs font-semibold uppercase tracking-widest text-slate-400" >
                         Configuración del local
                     </p>
-                    <h1 className="flex items-center gap-2 text-2xl font-bold" style={{ color: "var(--color-text)" }}>
-                        <Table2 className="text-blue-500" size={24} /> Gestión de Mesas
+                    <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-100" >
+                        <Table2 className="text-amber-400" size={24} /> Gestión de Mesas
                     </h1>
-                    <p className="mt-0.5 text-sm" style={{ color: "var(--color-text-muted)" }}>
+                    <p className="mt-0.5 text-sm text-slate-400" >
                         Crea, edita, desactiva y elimina las mesas del establecimiento.
                     </p>
                 </div>

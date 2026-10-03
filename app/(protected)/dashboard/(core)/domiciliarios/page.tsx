@@ -14,15 +14,15 @@ export default async function DomiciliariosPage() {
       <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1
-            className="text-2xl font-bold flex items-center gap-2"
-            style={{ color: "var(--color-text)" }}
+            className="text-2xl font-bold flex items-center gap-2 text-slate-100"
+            
           >
             <Bike className="text-amber-400" size={28} />
             Módulo de Domiciliarios
           </h1>
           <p
-            className="text-sm mt-0.5"
-            style={{ color: "var(--color-text-muted)" }}
+            className="text-sm mt-0.5 text-slate-400"
+            
           >
             Registra repartidores, monitorea sus envíos y analiza sus métricas y KPIs en tiempo real.
           </p>

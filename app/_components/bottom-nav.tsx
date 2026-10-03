@@ -20,10 +20,10 @@ export default function BottomNav({ role }: { role: Role }) {
             key={href}
             href={href}
             className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all ${
-              isActive ? "text-stone-100 font-extrabold" : "text-slate-400 font-medium hover:text-slate-200"
+              isActive ? "text-amber-400 font-extrabold" : "text-slate-400 font-medium hover:text-slate-200"
             }`}
           >
-            <div className={`p-1.5 rounded-lg ${isActive ? "bg-stone-100/15 text-stone-100" : ""}`}>
+            <div className={`p-1.5 rounded-lg ${isActive ? "bg-amber-500/15 text-amber-400" : ""}`}>
               <Icon size={20} strokeWidth={isActive ? 2.5 : 1.8} />
             </div>
             <span className="text-[10px] tracking-tight">{label}</span>

@@ -48,21 +48,21 @@ export function ConfirmModal({
 
   return (
     <div
-      className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="relative w-full max-w-sm bg-[#18181b] border border-neutral-800 rounded-2xl shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
         {/* Body */}
         <div className="p-6 flex flex-col items-center gap-4 text-center">
           <div className={`p-3 rounded-full ${colors.iconBg}`}>
-            {variant === 'info' ? (<AlertTriangle className={colors.icon} size={22} />) : (<Info className={colors.icon} size={22} />)}
+            {variant === 'info' ? (<Info className={colors.icon} size={22} />) : (<AlertTriangle className={colors.icon} size={22} />)}
 
           </div>
           <div className="flex flex-col gap-1">
             <h3 className="text-base font-bold text-white">{title}</h3>
-            <p className="text-sm text-neutral-400">{description}</p>
+            <p className="text-sm text-slate-400">{description}</p>
           </div>
         </div>
 
@@ -72,7 +72,7 @@ export function ConfirmModal({
             type="button"
             onClick={onClose}
             disabled={isPending}
-            className="px-4 py-2 text-sm font-semibold bg-neutral-900 hover:bg-neutral-800 text-neutral-300 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+            className="px-4 py-2 text-sm font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors cursor-pointer disabled:opacity-50 min-h-11"
           >
             {cancelLabel}
           </button>
@@ -80,9 +80,9 @@ export function ConfirmModal({
             type="button"
             onClick={onConfirm}
             disabled={isPending}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-lg transition-all duration-200 cursor-pointer shadow-lg disabled:opacity-50 ${colors.btn}`}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-xl transition-all duration-200 cursor-pointer shadow-lg disabled:opacity-50 min-h-11 ${colors.btn}`}
           >
-            {isPending && <Loader2 className="animate-spin" size={14} />}
+            {isPending && <Loader2 className="motion-reduce:animate-none animate-spin" size={14} />}
             {confirmLabel}
           </button>
         </div>

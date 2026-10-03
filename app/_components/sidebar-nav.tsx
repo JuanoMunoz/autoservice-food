@@ -23,7 +23,7 @@ export default function SidebarNav({ role }: { role: Role }) {
             href={href}
             className={`flex items-center gap-3.5 px-4 py-3 text-sm rounded-xl font-bold transition-all ${
               isActive
-                ? "bg-stone-100 text-slate-950 shadow-md"
+                ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20"
                 : "text-slate-400 hover:text-slate-100 hover:bg-slate-900"
             }`}
           >

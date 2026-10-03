@@ -16,15 +16,15 @@ export default async function SalsasPage() {
       <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1
-            className="text-2xl font-bold flex items-center gap-2"
-            style={{ color: "var(--color-text)" }}
+            className="text-2xl font-bold flex items-center gap-2 text-slate-100"
+            
           >
-            <Sparkles className="text-blue-500" size={24} />
+            <Sparkles className="text-amber-400" size={24} />
             Gestión de Salsas
           </h1>
           <p
-            className="text-sm mt-0.5"
-            style={{ color: "var(--color-text-muted)" }}
+            className="text-sm mt-0.5 text-slate-400"
+            
           >
             Administra las opciones de salsas disponibles en la aplicación de autoservicio.
           </p>

@@ -24,17 +24,8 @@ export default function SetRoleList({ initialUsers }: SetRoleListProps) {
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
   const [saving, setSaving] = useState(false)
 
-  const selectStyle: React.CSSProperties = {
-    padding: "0.375rem 0.5rem",
-    fontSize: "0.8125rem",
-    background: "var(--color-surface)",
-    color: "var(--color-text)",
-    border: "1px solid var(--color-border)",
-    borderRadius: "4px",
-    outline: "none",
-    cursor: "pointer",
-    fontFamily: "inherit",
-  }
+  const selectClass =
+    "px-2 py-1.5 text-[13px] bg-slate-950 border border-slate-800 rounded-xl text-slate-100 focus:outline-none focus:border-amber-500 cursor-pointer"
 
   async function handleSave(email: string) {
     if (!selectedRole) return
@@ -66,45 +57,34 @@ export default function SetRoleList({ initialUsers }: SetRoleListProps) {
   }
 
   return (
-    <div
-      className="overflow-x-auto rounded-sm border"
-      style={{
-        borderColor: "var(--color-border)",
-        background: "var(--color-surface)",
-      }}
-    >
+    <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/80">
       <table className="w-full text-left border-collapse">
         <thead>
-          <tr
-            className="border-b"
-            style={{
-              borderColor: "var(--color-border)",
-            }}
-          >
-            <th className="p-4 text-xs font-semibold uppercase tracking-wider text-text-muted">
+          <tr className="border-b border-slate-800">
+            <th className="p-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
               Usuario
             </th>
-            <th className="p-4 text-xs font-semibold uppercase tracking-wider text-text-muted">
+            <th className="p-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
               Correo
             </th>
-            <th className="p-4 text-xs font-semibold uppercase tracking-wider text-text-muted">
+            <th className="p-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
               Rol
             </th>
-            <th className="p-4 text-xs font-semibold uppercase tracking-wider text-text-muted text-right">
+            <th className="p-4 text-xs font-semibold uppercase tracking-wider text-slate-400 text-right">
               Acciones
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-border">
+        <tbody className="divide-y divide-slate-800/60">
           {users.map((user) => {
             const isEditing = editingUserId === user.id
 
             return (
-              <tr key={user.id} className="hover:bg-background transition-colors">
-                <td className="p-4 text-sm font-medium text-text">
+              <tr key={user.id} className="hover:bg-slate-800/40 transition-colors">
+                <td className="p-4 text-sm font-medium text-slate-100">
                   {user.name}
                 </td>
-                <td className="p-4 text-sm text-text-muted">
+                <td className="p-4 text-sm text-slate-400">
                   {user.email}
                 </td>
                 <td className="p-4 text-sm">
@@ -112,7 +92,7 @@ export default function SetRoleList({ initialUsers }: SetRoleListProps) {
                     <select
                       value={selectedRole || user.role}
                       onChange={(e) => setSelectedRole(e.target.value as Role)}
-                      style={selectStyle}
+                      className={selectClass}
                     >
                       {ROLES.map((roleOpt) => (
                         <option key={roleOpt} value={roleOpt}>
@@ -122,21 +102,13 @@ export default function SetRoleList({ initialUsers }: SetRoleListProps) {
                     </select>
                   ) : (
                     <span
-                      className="text-xs font-medium px-2 py-0.5 rounded-sm"
-                      style={{
-                        background:
-                          user.role === "SUPER_ADMIN"
-                            ? "rgba(18, 90, 245, 0.08)"
-                            : user.role === "ADMIN"
-                              ? "rgba(225, 131, 53, 0.08)"
-                              : "rgba(39, 38, 53, 0.06)",
-                        color:
-                          user.role === "SUPER_ADMIN"
-                            ? "var(--color-primary)"
-                            : user.role === "ADMIN"
-                              ? "var(--color-accent)"
-                              : "var(--color-text-muted)",
-                      }}
+                      className={`text-[11px] font-extrabold px-2 py-0.5 rounded-full border ${
+                        user.role === "SUPER_ADMIN"
+                          ? "bg-sky-500/15 text-sky-400 border-sky-500/30"
+                          : user.role === "ADMIN"
+                            ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                            : "bg-slate-500/15 text-slate-400 border-slate-500/30"
+                      }`}
                     >
                       {roleLabel[user.role]}
                     </span>
@@ -148,7 +120,7 @@ export default function SetRoleList({ initialUsers }: SetRoleListProps) {
                       <button
                         onClick={() => handleSave(user.email)}
                         disabled={saving}
-                        className="p-1 rounded-sm text-primary hover:bg-background transition-colors disabled:opacity-50"
+                        className="p-1.5 rounded-lg text-emerald-400 hover:bg-slate-800 transition-colors disabled:opacity-50" aria-label="Guardar"
                         title="Guardar"
                       >
                         {saving ? (
@@ -163,7 +135,7 @@ export default function SetRoleList({ initialUsers }: SetRoleListProps) {
                           setSelectedRole(null)
                         }}
                         disabled={saving}
-                        className="p-1 rounded-sm text-text-muted hover:bg-background transition-colors disabled:opacity-50"
+                        className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors disabled:opacity-50" aria-label="Cancelar"
                         title="Cancelar"
                       >
                         <X size={15} strokeWidth={2} />
@@ -175,7 +147,7 @@ export default function SetRoleList({ initialUsers }: SetRoleListProps) {
                         setEditingUserId(user.id)
                         setSelectedRole(user.role)
                       }}
-                      className="p-1 rounded-sm text-text-muted hover:text-text hover:bg-backgroundtransition-colors"
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors" aria-label="Editar rol"
                       title="Editar Rol"
                     >
                       <Pencil size={15} strokeWidth={1.5} />

@@ -32,17 +32,17 @@ const columns: CrudColumn<Ingredient>[] = [
         render: (item) => (
             <div className="flex items-center gap-3">
                 {item.imageRoute ? (
-                    <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-neutral-800 bg-neutral-950 shrink-0">
+                    <div className="relative w-10 h-10 rounded-xl overflow-hidden border border-slate-800 bg-slate-950 shrink-0">
                         <Image src={item.imageRoute} alt={item.name} fill className="object-contain p-0.5" unoptimized />
                     </div>
                 ) : (
-                    <div className="w-10 h-10 rounded-lg border border-neutral-800 bg-neutral-900 flex items-center justify-center shrink-0">
-                        <Package size={16} className="text-neutral-600" />
+                    <div className="w-10 h-10 rounded-xl border border-slate-800 bg-slate-950 flex items-center justify-center shrink-0">
+                        <Package size={16} className="text-slate-600" />
                     </div>
                 )}
                 <div>
-                    <span className="font-semibold text-neutral-200">{item.name}</span>
-                    <span className="block text-[10px] text-neutral-500 max-w-[200px] truncate">
+                    <span className="font-semibold text-slate-200">{item.name}</span>
+                    <span className="block text-[10px] text-slate-500 max-w-[200px] truncate">
                         {item.description}
                     </span>
                 </div>
@@ -54,7 +54,7 @@ const columns: CrudColumn<Ingredient>[] = [
         label: "Tipo / Topping",
         render: (item) => (
             <div className="flex flex-col gap-1">
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold w-fit bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold w-fit bg-blue-500/10 text-amber-300 border border-amber-500/20">
                     {TYPE_LABELS[item.type]}
                 </span>
                 {item.isTopping && (
@@ -78,7 +78,7 @@ const columns: CrudColumn<Ingredient>[] = [
         key: "createdAt",
         label: "Creado",
         render: (item) => (
-            <span className="text-xs text-neutral-400">
+            <span className="text-xs text-slate-400">
                 {item.createdAt.toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" })}
             </span>
         ),
@@ -188,73 +188,75 @@ export function IngredientesClient({ initialData }: IngredientesClientProps) {
             />
 
             {formOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                    <div className="relative w-full max-w-lg bg-[#18181b] border border-neutral-800 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-                        <div className="px-6 py-4 border-b border-neutral-800 flex items-center justify-between bg-neutral-900/50 shrink-0">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => { setFormOpen(false); resetForm(); }}>
+                    <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}>
+                        <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/50 shrink-0">
                             <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                <Package className="text-blue-500" size={18} />
+                                <Package className="text-amber-400" size={18} />
                                 {editingItem ? "Editar Ingrediente" : "Nuevo Ingrediente"}
                             </h3>
-                            <button onClick={() => { setFormOpen(false); resetForm(); }} className="p-1 text-neutral-400 hover:text-white rounded-md hover:bg-neutral-800 transition-colors cursor-pointer">
+                            <button onClick={() => { setFormOpen(false); resetForm(); }} className="p-1 text-slate-400 hover:text-white rounded-md hover:bg-slate-800 transition-colors cursor-pointer">
                                 <X size={18} />
                             </button>
                         </div>
 
                         <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4 overflow-y-auto">
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-xs uppercase tracking-wider text-neutral-400 font-semibold">Nombre</label>
+                                <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Nombre</label>
                                 <input type="text" value={name} onChange={(e) => setName(e.target.value)}
                                     placeholder="Ej. Tomate, Queso cheddar..."
-                                    className="w-full px-3.5 py-2.5 text-sm bg-neutral-900 border border-neutral-800 rounded-lg text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-neutral-700 transition-colors" required />
+                                    className="w-full px-3.5 py-2.5 text-sm bg-slate-950 border border-slate-800 rounded-xl text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-700 transition-colors" required />
                             </div>
 
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-xs uppercase tracking-wider text-neutral-400 font-semibold">Descripción</label>
+                                <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Descripción</label>
                                 <textarea value={description} onChange={(e) => setDescription(e.target.value)}
                                     placeholder="Descripción breve del ingrediente..."
                                     rows={2}
-                                    className="w-full px-3.5 py-2.5 text-sm bg-neutral-900 border border-neutral-800 rounded-lg text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-neutral-700 transition-colors resize-none" required />
+                                    className="w-full px-3.5 py-2.5 text-sm bg-slate-950 border border-slate-800 rounded-xl text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-700 transition-colors resize-none" required />
                             </div>
 
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-xs uppercase tracking-wider text-neutral-400 font-semibold">Precio (COP)</label>
+                                <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Precio (COP)</label>
                                 <div className="relative">
-                                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-neutral-500 font-semibold">$</span>
+                                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-slate-500 font-semibold">$</span>
                                     <input type="number" value={priceStr} onChange={(e) => setPriceStr(e.target.value)}
                                         placeholder="0" min={0}
-                                        className="w-full pl-8 pr-3.5 py-2.5 text-sm bg-neutral-900 border border-neutral-800 rounded-lg text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-neutral-700 transition-colors" required />
+                                        className="w-full pl-8 pr-3.5 py-2.5 text-sm bg-slate-950 border border-slate-800 rounded-xl text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-700 transition-colors" required />
                                 </div>
                                 {priceStr && <span className="text-[10px] text-emerald-400">{formatCOP(priceStr)}</span>}
                             </div>
 
                             <div className="flex gap-3">
                                 <div className="flex flex-col gap-1.5 flex-1">
-                                    <label className="text-xs uppercase tracking-wider text-neutral-400 font-semibold">Tipo</label>
+                                    <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Tipo</label>
                                     <select value={type} onChange={(e) => setType(e.target.value as IngredientType)}
-                                        className="w-full px-3.5 py-2.5 text-sm bg-neutral-900 border border-neutral-800 rounded-lg text-neutral-200 focus:outline-none focus:border-neutral-700 transition-colors cursor-pointer">
+                                        className="w-full px-3.5 py-2.5 text-sm bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:outline-none focus:border-slate-700 transition-colors cursor-pointer">
                                         <option value="FOOD">Comida</option>
                                         <option value="DRINK">Bebida</option>
                                     </select>
                                 </div>
                                 <div className="flex flex-col gap-1.5 justify-end">
-                                    <label className="text-xs uppercase tracking-wider text-neutral-400 font-semibold">Topping</label>
-                                    <label className="flex items-center gap-2 px-3.5 py-2.5 bg-neutral-900 border border-neutral-800 rounded-lg cursor-pointer hover:border-neutral-700 transition-colors">
+                                    <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Topping</label>
+                                    <label className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl cursor-pointer hover:border-slate-700 transition-colors">
                                         <input type="checkbox" checked={isTopping} onChange={(e) => setIsTopping(e.target.checked)}
-                                            className="rounded border-neutral-700 accent-amber-500 cursor-pointer" />
-                                        <span className="text-sm text-neutral-300">Es topping</span>
+                                            className="rounded border-slate-700 accent-amber-500 cursor-pointer" />
+                                        <span className="text-sm text-slate-300">Es topping</span>
                                     </label>
                                 </div>
                             </div>
 
                             <ImageUploader value={imageRoute} onChange={setImageRoute} label="Imagen del ingrediente" />
 
-                            <div className="flex items-center justify-end gap-3 pt-4 border-t border-neutral-800/60">
+                            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800/60">
                                 <button type="button" onClick={() => { setFormOpen(false); resetForm(); }}
-                                    className="px-4 py-2.5 text-sm font-semibold bg-neutral-900 hover:bg-neutral-800 text-neutral-300 rounded-lg transition-colors cursor-pointer">
+                                    className="px-4 py-2.5 text-sm font-semibold bg-slate-950 hover:bg-slate-800 text-slate-300 rounded-xl transition-colors cursor-pointer">
                                     Cancelar
                                 </button>
                                 <button type="submit" disabled={isPending}
-                                    className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-all cursor-pointer shadow-lg shadow-blue-900/20 disabled:opacity-50">
+                                    className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold bg-amber-500 hover:bg-amber-400 text-white rounded-xl transition-all cursor-pointer shadow-lg shadow-blue-900/20 disabled:opacity-50">
                                     {isPending && <Loader2 className="animate-spin" size={14} />}
                                     {editingItem ? "Actualizar" : "Guardar"}
                                 </button>
