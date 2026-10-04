@@ -24,6 +24,13 @@ export interface KPIData {
   averageOrderValue: number; // Ticket promedio
   cancellationRate: number; // % canceladas
 
+  // Venta neta de la tienda (bruto menos domicilios: lo que realmente se queda el negocio)
+  todayNetSales: number;
+  weekNetSales: number;
+  monthNetSales: number;
+  totalNetSales: number;
+  totalDeliveryFees: number; // Suma de domicilios (ganancia de repartidores)
+
   // Status Funnel Breakdown
   ordersByStatus: {
     CREATED: number;
@@ -178,6 +185,12 @@ export async function getKPIData(): Promise<KPIData> {
   // Non-cancelled orders helper
   const validOrders = allOrders.filter(o => o.status !== OrderStatus.CANCELLED);
 
+  // Neto tienda por orden: total menos domicilio (en local el domicilio es 0)
+  const netOf = (o: (typeof validOrders)[number]) =>
+    Number(o.total) - (o.onSite ? 0 : Number(o.deliveryFee));
+  const feesOf = (o: (typeof validOrders)[number]) =>
+    o.onSite ? 0 : Number(o.deliveryFee);
+
   // 1. Venta del Día (Hoy)
   const todayOrders = validOrders.filter(o => new Date(o.createdAt) >= startOfToday);
   const yesterdayOrders = validOrders.filter(o => {
@@ -219,6 +232,8 @@ export async function getKPIData(): Promise<KPIData> {
 
   // 4. Financial & Operations
   const totalSales = validOrders.reduce((sum, o) => sum + Number(o.total), 0);
+  const totalNetSales = validOrders.reduce((sum, o) => sum + netOf(o), 0);
+  const totalDeliveryFees = validOrders.reduce((sum, o) => sum + feesOf(o), 0);
   const totalOrdersCount = allOrders.length;
   const activeOrdersCount = validOrders.length;
   const averageOrderValue = activeOrdersCount > 0 ? totalSales / activeOrdersCount : 0;
@@ -407,17 +422,22 @@ export async function getKPIData(): Promise<KPIData> {
     todaySales,
     todayOrdersCount: todayOrders.length,
     todayVsYesterdayPercent,
+    todayNetSales: todayOrders.reduce((sum, o) => sum + netOf(o), 0),
 
     weekSales,
     weekOrdersCount: weekOrders.length,
     weekVsPrevWeekPercent,
+    weekNetSales: weekOrders.reduce((sum, o) => sum + netOf(o), 0),
 
     monthSales,
     monthOrdersCount: monthOrders.length,
     monthVsPrevMonthPercent,
+    monthNetSales: monthOrders.reduce((sum, o) => sum + netOf(o), 0),
 
     totalSales,
     totalOrdersCount,
+    totalNetSales,
+    totalDeliveryFees,
     activeOrdersCount,
     averageOrderValue,
     cancellationRate,

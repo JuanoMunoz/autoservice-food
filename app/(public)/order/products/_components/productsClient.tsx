@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useCart } from '@/app/_hooks/use-cart'
 import Image from 'next/image'
 import { formatCurrency, getCartFromStorage } from '@/utils/cartStorage'
+import ActiveOrderButton from '@/app/(public)/order/_components/active-order-button'
 import { ArrowLeft, ShoppingCart, Utensils, CupSoda, MapPin, Truck, RefreshCw, X, ChevronRight } from 'lucide-react'
 import { LocationType } from '@/types/Order'
 
@@ -87,8 +88,9 @@ export default function ProductsClient({ initialProducts, initialDrinks, table }
                     </div>
                 </div>
 
-                {/* Location Chip Switcher */}
+                {/* Location Chip Switcher + Active Order */}
                 <div className="flex items-center gap-2">
+                    <ActiveOrderButton />
                     <button
                         onClick={() => setShowLocationModal(true)}
                         className="flex items-center gap-2 px-3.5 py-2 bg-slate-100 border border-slate-300 hover:border-secondary text-slate-900 rounded-sm transition-all active:scale-95 shadow-sm cursor-pointer touch-manipulation"

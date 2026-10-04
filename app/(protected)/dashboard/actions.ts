@@ -8,7 +8,7 @@ import { Role } from "@/lib/generated/prisma/enums";
 import { redirect } from "next/navigation";
 import { requireRole } from "@/utils/auth";
 import { serializePrisma } from "@/utils/serializePrisma";
-import { createOrder } from "@/app/(public)/order/actions";
+import { createOrder, type CreateOrderOptions } from "@/app/(public)/order/actions";
 import type { OrderDetails } from "@/types/Order";
 import type { AdminOrderCatalog } from "@/types/AdminOrder";
 
@@ -141,7 +141,7 @@ export async function findLatestCustomerByPhone(phone: string) {
     return order ? serializePrisma(order) : null;
 }
 
-export async function createAdminOrder(details: OrderDetails) {
+export async function createAdminOrder(details: OrderDetails, opts?: CreateOrderOptions) {
     await requireRole(["SUPER_ADMIN", "ADMIN"]);
-    return createOrder(details);
+    return createOrder(details, opts);
 }

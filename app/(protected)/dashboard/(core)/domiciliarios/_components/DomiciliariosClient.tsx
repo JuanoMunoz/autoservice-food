@@ -40,6 +40,8 @@ interface Driver {
   active: boolean;
   totalDeliveries: number;
   totalAmount: number;
+  netAmount: number;
+  totalEarnings: number;
   lastDelivery?: string | Date | null;
   createdAt: string | Date;
 }
@@ -62,6 +64,8 @@ interface KPIProps {
     active: boolean;
     trips: number;
     totalMoney: number;
+    netMoney: number;
+    totalEarnings: number;
     avgMoney: number;
     lastDelivery?: string | Date | null;
     recentDeliveries: Array<{
@@ -532,17 +536,29 @@ export default function DomiciliariosClient({
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-slate-800/80 flex justify-between items-center text-xs">
-                    <div>
+                  <div className="pt-3 border-t border-slate-800/80 space-y-1.5 text-xs">
+                    <div className="flex justify-between items-center">
                       <p className="text-slate-500">Viajes completados</p>
                       <p className="font-bold text-white text-sm">
                         {driver.totalDeliveries} envíos
                       </p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-slate-500">Total despachado</p>
-                      <p className="font-bold text-amber-400 text-sm">
+                    <div className="flex justify-between items-center">
+                      <p className="text-slate-500">Bruto movido</p>
+                      <p className="font-bold text-slate-200 text-sm">
                         {formatMoney(driver.totalAmount)}
+                      </p>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <p className="text-slate-500">Neto tienda</p>
+                      <p className="font-bold text-emerald-400 text-sm">
+                        {formatMoney(driver.netAmount)}
+                      </p>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <p className="text-slate-500">Ganó en domicilios</p>
+                      <p className="font-bold text-amber-400 text-sm">
+                        {formatMoney(driver.totalEarnings)}
                       </p>
                     </div>
                   </div>
@@ -582,7 +598,9 @@ export default function DomiciliariosClient({
                     <th className="p-3.5 rounded-l-xl">Domiciliario</th>
                     <th className="p-3.5">Vehículo / Placa</th>
                     <th className="p-3.5 text-center">Viajes Totales</th>
-                    <th className="p-3.5 text-right">Total Dinero Mover</th>
+                    <th className="p-3.5 text-right">Bruto Movido</th>
+                    <th className="p-3.5 text-right">Neto Tienda</th>
+                    <th className="p-3.5 text-right">Ganó Domicilios</th>
                     <th className="p-3.5 text-right">Promedio / Entrega</th>
                     <th className="p-3.5 text-right rounded-r-xl">Último Envío</th>
                   </tr>
@@ -590,9 +608,9 @@ export default function DomiciliariosClient({
                 <tbody className="divide-y divide-slate-800/60">
                   {kpis.drivers.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="p-6 text-center text-slate-500">
-                        No hay datos estadísticos registrados aún.
-                      </td>
+                        <td colSpan={8} className="p-6 text-center text-slate-500">
+                          No hay datos estadísticos registrados aún.
+                        </td>
                     </tr>
                   ) : (
                     kpis.drivers.map((d) => (
@@ -609,8 +627,14 @@ export default function DomiciliariosClient({
                         <td className="p-3.5 text-center font-bold text-amber-400">
                           {d.trips}
                         </td>
-                        <td className="p-3.5 text-right font-black text-emerald-400">
+                        <td className="p-3.5 text-right font-black text-slate-200">
                           {formatMoney(d.totalMoney)}
+                        </td>
+                        <td className="p-3.5 text-right font-black text-emerald-400">
+                          {formatMoney(d.netMoney)}
+                        </td>
+                        <td className="p-3.5 text-right font-black text-amber-400">
+                          {formatMoney(d.totalEarnings)}
                         </td>
                         <td className="p-3.5 text-right font-medium text-slate-300">
                           {formatMoney(d.avgMoney)}

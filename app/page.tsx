@@ -571,7 +571,7 @@ export default async function HomePage() {
                   <span className="text-amber-400 font-black text-lg transition-transform group-open:rotate-45">+</span>
                 </summary>
                 <p className="mt-3 text-xs sm:text-sm text-slate-400 leading-relaxed font-medium">
-                  Aceptamos pago en efectivo al momento de la entrega o consumo, pago con tarjeta de débito/crédito y transferencias electrónicas en línea (Nequi / Bancolombia).
+                  Aceptamos pago en efectivo al momento de la entrega o consumo y transferencias electrónicas en línea (Nequi / Bancolombia).
                 </p>
               </details>
             </div>

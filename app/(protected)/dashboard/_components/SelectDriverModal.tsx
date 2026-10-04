@@ -39,9 +39,9 @@ export default function SelectDriverModal({
       // intencionado: fetch-on-open clásico; el loading vive en el ciclo de la promesa
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsLoadingDrivers(true);
-      // Prefill del pago con el registrado en la orden (card cuenta como transferencia)
+      // Prefill del pago con el registrado en la orden
       const pm = order?.paymentMethod;
-      setPaymentMethod(pm === 'card' || pm === 'transfer' ? 'transfer' : 'cash');
+      setPaymentMethod(pm === 'transfer' ? 'transfer' : 'cash');
       getActiveDeliveryDrivers()
         .then((data) => {
           setDrivers(data || []);

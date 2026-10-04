@@ -32,7 +32,7 @@ El sistema consta de 5 pantallas principales:
 - Resumen de items del carrito
 - Nombre del cliente (opcional)
 - **Si es a domicilio**: Modal para ingresar dirección y referencia
-- Selector de método de pago: Efectivo 💵, Tarjeta 💳, Transferencia 🏦
+- Selector de método de pago: Efectivo 💵, Transferencia 🏦
 - Total calculado automáticamente
 
 ### 5. Confirmación de Orden (`/order/confirmation/[orderId]`)

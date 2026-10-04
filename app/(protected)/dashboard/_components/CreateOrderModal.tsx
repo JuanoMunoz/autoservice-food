@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useEffect } from 'react'
 import { toast } from 'sonner'
-import { Search, Plus, Minus, Trash2, X, ShoppingBag, UserRound, MapPin, Truck } from 'lucide-react'
+import { Search, Plus, Minus, Trash2, X, ShoppingBag, UserRound, MapPin, Truck, RefreshCw } from 'lucide-react'
 import { createAdminOrder, findLatestCustomerByPhone } from '../actions'
 import { calculateDeliveryFee } from '@/app/(public)/order/actions'
 import LocationPickerModal from '@/app/(public)/order/checkout/_components/LocationPickerModal'
@@ -46,6 +46,7 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
 
     // Delivery fee state & map modal
     const [deliveryFee, setDeliveryFee] = useState<number>(0)
+    const [isFeeManual, setIsFeeManual] = useState(false)
     const [feeInfo, setFeeInfo] = useState<DeliveryFeeCalculationResult | null>(null)
     const [isCalculatingFee, setIsCalculatingFee] = useState(false)
     const [coords, setCoords] = useState<{ lat: number; lng: number } | undefined>(undefined)
@@ -55,8 +56,9 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
     const [isSearching, startSearch] = useTransition()
     const [isSaving, startSaving] = useTransition()
 
-    // Dynamic Delivery Fee Calculation effect
+    // Dynamic Delivery Fee Calculation effect (pauses while manually overridden)
     useEffect(() => {
+        if (isFeeManual) return
         async function updateDeliveryFee() {
             if (contact.onSite) return
             setIsCalculatingFee(true)
@@ -71,7 +73,7 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
             }
         }
         updateDeliveryFee()
-    }, [contact.onSite, coords?.lat, coords?.lng])
+    }, [contact.onSite, coords?.lat, coords?.lng, isFeeManual])
 
     const selectedProduct = catalog.products.find((product) => product.id === selectedId)
     const selectedDrink = catalog.drinks.find((drink) => drink.id === selectedId)
@@ -143,6 +145,7 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
         if (data.lat && data.lng) {
             const newCoords = { lat: data.lat, lng: data.lng }
             setCoords(newCoords)
+            if (isFeeManual) return
             setIsCalculatingFee(true)
             try {
                 const res = await calculateDeliveryFee(newCoords)
@@ -153,6 +156,29 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
             } finally {
                 setIsCalculatingFee(false)
             }
+        }
+    }
+
+    const handleManualFeeChange = (raw: string) => {
+        const parsed = Number(raw.replace(/[^0-9]/g, ''))
+        if (!Number.isFinite(parsed)) return
+        setDeliveryFee(Math.max(0, Math.min(100000, Math.round(parsed))))
+        setIsFeeManual(true)
+    }
+
+    const handleRecalculateFee = async () => {
+        setIsFeeManual(false)
+        setIsCalculatingFee(true)
+        try {
+            const res = await calculateDeliveryFee(coords)
+            setFeeInfo(res)
+            setDeliveryFee(res.fee)
+        } catch (err) {
+            console.error('Error recalculating delivery fee:', err)
+            toast.error('No se pudo recalcular el domicilio')
+            setIsFeeManual(true)
+        } finally {
+            setIsCalculatingFee(false)
         }
     }
 
@@ -242,7 +268,7 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
                     },
                     paymentType,
                     total: finalTotal,
-                })
+                }, contact.onSite ? undefined : { manualDeliveryFee: deliveryFee })
                 toast.success(`Orden #${order.id} creada correctamente`)
                 onCreated(order)
             } catch (error) {
@@ -304,14 +330,45 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
                             {/* Delivery Address & Fee Breakdown */}
                             {!contact.onSite && (
                                 <div className="mt-3 space-y-3 rounded-lg border border-slate-800 bg-slate-900/80 p-3">
-                                    <div className="flex items-center justify-between">
+                                    <div className="flex items-center justify-between gap-2">
                                         <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
                                             <Truck className="h-4 w-4 text-amber-400" /> Dirección de entrega
                                         </span>
-                                        <span className="text-xs font-extrabold text-amber-400">
-                                            Costo Domicilio: {isCalculatingFee ? 'Calculando...' : formatCurrency(deliveryFee)}
-                                        </span>
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-[11px] font-bold text-slate-400">Domicilio $</span>
+                                            <input
+                                                type="number"
+                                                min={0}
+                                                max={100000}
+                                                step={500}
+                                                value={deliveryFee}
+                                                disabled={isCalculatingFee}
+                                                onChange={(event) => handleManualFeeChange(event.target.value)}
+                                                className="w-24 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs font-black text-amber-300 outline-none focus:border-amber-400 disabled:opacity-50"
+                                                aria-label="Valor del domicilio"
+                                            />
+                                            {isFeeManual ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={handleRecalculateFee}
+                                                    disabled={isCalculatingFee}
+                                                    className="flex items-center gap-1 rounded-lg border border-slate-700 px-2 py-1.5 text-[11px] font-black text-slate-300 hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
+                                                    title="Volver al cálculo automático por distancia"
+                                                >
+                                                    <RefreshCw className="h-3.5 w-3.5" /> Auto
+                                                </button>
+                                            ) : (
+                                                <span className="text-[11px] font-bold text-slate-500">
+                                                    {isCalculatingFee ? 'Calculando...' : 'Auto'}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
+                                    {isFeeManual && (
+                                        <p className="text-[11px] font-bold text-amber-300/90">
+                                            Valor manual — el cálculo automático está en pausa.
+                                        </p>
+                                    )}
 
                                     {/* Map GPS Trigger */}
                                     <button
@@ -393,7 +450,7 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
                             </div>
                             {!contact.onSite && (
                                 <div className="flex items-center justify-between text-xs text-amber-400 font-bold">
-                                    <span className="flex items-center gap-1"><Truck className="h-3.5 w-3.5" /> Domicilio</span>
+                                    <span className="flex items-center gap-1"><Truck className="h-3.5 w-3.5" /> Domicilio{isFeeManual ? ' (manual)' : ''}</span>
                                     <span>{isCalculatingFee ? 'Calculando...' : `+${formatCurrency(deliveryFee)}`}</span>
                                 </div>
                             )}

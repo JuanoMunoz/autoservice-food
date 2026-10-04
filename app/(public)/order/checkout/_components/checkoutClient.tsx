@@ -6,9 +6,11 @@ import { useCart } from '@/app/_hooks/use-cart'
 import { formatCurrency, getCartFromStorage } from '@/utils/cartStorage'
 import { PaymentType } from '@/types/Order'
 import { createOrder, getDeliveryFee, calculateDeliveryFee } from '@/app/(public)/order/actions'
+import { addActiveOrderId } from '@/utils/activeOrderStorage'
 import { DeliveryFeeCalculationResult } from '@/types/Order'
-import { ArrowLeft, DollarSign, CreditCard, Send, MapPin, ShoppingBag, Check, Truck, X, Plus, Minus, Trash2, Map } from 'lucide-react'
+import { ArrowLeft, DollarSign, Send, MapPin, ShoppingBag, Check, Truck, X, Plus, Minus, Trash2, Map } from 'lucide-react'
 import LocationPickerModal from './LocationPickerModal'
+import ActiveOrderButton from '@/app/(public)/order/_components/active-order-button'
 
 interface CheckoutClientProps {
     initialDeliveryFee?: number
@@ -201,6 +203,7 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
             }
 
             const response = await createOrder(orderDetails)
+            addActiveOrderId(response.id)
             isNavigatingToConfirmation.current = true
             clearCart()
             router.push(`/order/confirmation/${response.id}`)
@@ -226,7 +229,7 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
                 <h1 className="text-xl font-black text-slate-900 tracking-wide text-center">
                     Resumen de tu Pedido
                 </h1>
-                <div className="w-10" />
+                <ActiveOrderButton />
             </header>
 
             <main className="max-w-2xl mx-auto p-4 sm:p-6 space-y-6">
@@ -485,14 +488,12 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
                 <div className="bg-white border border-slate-200 rounded-sm p-6 shadow-sm space-y-3">
                     <h3 className="text-base font-black text-slate-900">Método de Pago</h3>
                     <div className="space-y-2">
-                        {['cash', 'card', 'transfer'].map((method) => {
+                        {['cash', 'transfer'].map((method) => {
                             const isSelected = selectedPayment === method
                             const getPaymentLabel = (m: string) => {
                                 switch (m) {
                                     case 'cash':
                                         return { label: 'Efectivo ', icon: <DollarSign className="w-5 h-5 text-slate-800" /> }
-                                    case 'card':
-                                        return { label: 'Tarjeta de Débito/Crédito', icon: <CreditCard className="w-5 h-5 text-slate-800" /> }
                                     case 'transfer':
                                         return { label: 'Transferencia Bancaria (Nequi/Bancolombia)', icon: <Send className="w-5 h-5 text-slate-800" /> }
                                     default:

@@ -7,6 +7,7 @@ import { CartProduct, CartIngredient, CartSauce } from '@/types/Order'
 import Image from 'next/image'
 import { formatCurrency, getCartFromStorage } from '@/utils/cartStorage'
 import { ArrowLeft, Plus, Minus, Utensils, ShoppingBag } from 'lucide-react'
+import ActiveOrderButton from '@/app/(public)/order/_components/active-order-button'
 
 interface ProductDetail {
     id: string
@@ -138,7 +139,7 @@ export default function ProductClient({ initialProduct, initialSauces }: Product
                 <h1 className="text-xl font-black text-slate-900 tracking-wide text-center">
                     Personalizar Pedido
                 </h1>
-                <div className="w-10" />
+                <ActiveOrderButton />
             </header>
 
             <main className="max-w-2xl mx-auto p-4 sm:p-6 space-y-8">

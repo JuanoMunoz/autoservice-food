@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/lib/generated/prisma/client";
 import { groupPaymentMethod, type SettlementPaymentGroup } from "@/lib/payment-groups";
 import { requireRole, runWithAuditContext } from "@/utils/auth";
 import { revalidatePath } from "next/cache";
@@ -31,7 +32,9 @@ export async function getDeliveryDrivers() {
         select: {
           id: true,
           orderTotal: true,
+          driverEarning: true,
           createdAt: true,
+          order: { select: { onSite: true } },
         },
       },
     },
@@ -40,6 +43,12 @@ export async function getDeliveryDrivers() {
   const formattedDrivers = drivers.map((driver) => {
     const totalDeliveries = driver.deliveries.length;
     const totalAmount = driver.deliveries.reduce((acc, curr) => acc + Number(curr.orderTotal), 0);
+    // Neto tienda = lo que se queda el negocio (total menos domicilio); ganancia = domicilios
+    const totalEarnings = driver.deliveries.reduce((acc, curr) => acc + Number(curr.driverEarning), 0);
+    const netAmount = driver.deliveries.reduce(
+      (acc, curr) => acc + Number(curr.orderTotal) - (curr.order.onSite ? 0 : Number(curr.driverEarning)),
+      0
+    );
     const lastDelivery = driver.deliveries.length > 0
       ? driver.deliveries.reduce((latest, curr) => curr.createdAt > latest ? curr.createdAt : latest, driver.deliveries[0].createdAt).toISOString()
       : null;
@@ -48,6 +57,8 @@ export async function getDeliveryDrivers() {
       ...driver,
       totalDeliveries,
       totalAmount,
+      netAmount,
+      totalEarnings,
       lastDelivery,
     };
   });
@@ -161,7 +172,7 @@ export async function completeOrderWithDriver(
   }
 
   const normalizedPayment =
-    paymentMethod === "cash" || paymentMethod === "card" || paymentMethod === "transfer"
+    paymentMethod === "cash" || paymentMethod === "transfer"
       ? paymentMethod
       : order.paymentMethod ?? null;
 
@@ -245,6 +256,7 @@ export async function getDomiciliariosKPIs() {
               total: true,
               buyerName: true,
               address: true,
+              onSite: true,
               createdAt: true,
             },
           },
@@ -267,6 +279,11 @@ export async function getDomiciliariosKPIs() {
   const driverStats = drivers.map((d) => {
     const trips = d.deliveries.length;
     const totalMoney = d.deliveries.reduce((sum, del) => sum + Number(del.orderTotal), 0);
+    const totalEarnings = d.deliveries.reduce((sum, del) => sum + Number(del.driverEarning), 0);
+    const netMoney = d.deliveries.reduce(
+      (sum, del) => sum + Number(del.orderTotal) - (del.order.onSite ? 0 : Number(del.driverEarning)),
+      0
+    );
     const avgMoney = trips > 0 ? totalMoney / trips : 0;
     const lastDelivery = d.deliveries.length > 0 ? d.deliveries[0].createdAt : null;
 
@@ -279,6 +296,8 @@ export async function getDomiciliariosKPIs() {
       active: d.active,
       trips,
       totalMoney,
+      netMoney,
+      totalEarnings,
       avgMoney,
       lastDelivery,
       recentDeliveries: d.deliveries.slice(0, 10).map((del) => ({
@@ -409,4 +428,288 @@ export async function getDriverSettlements(fromISO: string, toISO: string, drive
   );
 
   return serializePrisma({ settlements, totals, from: from.toISOString(), to: to.toISOString() });
+}
+
+// ─── CUADRE DE CUENTAS CON DOMICILIARIOS ─────────────────────────────
+// Balance desde la perspectiva del NEGOCIO hacia el driver:
+//   positivo  = el negocio le debe plata al domiciliario (hay que pagarle)
+//   negativo  = el domiciliario le debe plata al negocio (hay que cobrársela)
+// Efectivo: el driver cobró el total y se queda el domicilio → debe entregar (total - domicilio).
+// Transferencia: la plata entró al negocio → se le debe al driver el domicilio.
+
+export type CuadreDirection = "driver_owes" | "business_owes" | "none";
+
+export interface CuadreItem {
+  logId: string;
+  orderId: number;
+  buyerName: string;
+  address: string;
+  onSite: boolean;
+  paymentGroup: SettlementPaymentGroup;
+  orderTotal: number;
+  earning: number;
+  /** Monto esperado del cuadre (lo que debe moverse de manos) */
+  expected: number;
+  direction: CuadreDirection;
+  date: string;
+  settled: boolean;
+  settledAt: string | null;
+  settledAmount: number | null;
+  settledNote: string | null;
+}
+
+export interface DriverCuadre {
+  driverId: string;
+  driverName: string;
+  /** Balance neto pendiente (+ = hay que pagarle / − = debe entregar) */
+  balance: number;
+  /** Efectivo pendiente que el driver debe entregar */
+  toCollect: number;
+  /** Domicilios de transferencia pendientes por pagarle */
+  toPay: number;
+  pending: CuadreItem[];
+  settled: CuadreItem[];
+}
+
+export interface CuadresSummary {
+  /** Vendido neto de la tienda en el período (totales menos domicilios) */
+  netSales: number;
+  grossSales: number;
+  /** Suma de domicilios cobrados (ganancia total de repartidores) */
+  deliveryFees: number;
+  toCollect: number;
+  toPay: number;
+  /** Efectivo ya recibido de drivers (cuadres cash) */
+  collected: number;
+  /** Domicilios ya pagados a drivers (cuadres transfer) */
+  paidOut: number;
+  pendingCount: number;
+  settledCount: number;
+  from: string;
+  to: string;
+}
+
+function cuadreExpectation(
+  onSite: boolean,
+  paymentGroup: SettlementPaymentGroup,
+  orderTotal: number,
+  earning: number
+): { expected: number; direction: CuadreDirection } {
+  if (onSite) return { expected: 0, direction: "none" };
+  if (paymentGroup === "cash") {
+    return { expected: Math.max(0, orderTotal - earning), direction: "driver_owes" };
+  }
+  if (paymentGroup === "transfer") {
+    return { expected: Math.max(0, earning), direction: "business_owes" };
+  }
+  return { expected: 0, direction: "none" };
+}
+
+export async function getCuadres(fromISO: string, toISO: string, driverId?: string) {
+  await requireRole(["SUPER_ADMIN", "ADMIN"]);
+
+  const from = new Date(fromISO);
+  const to = new Date(toISO);
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+    throw new Error("Rango de fechas inválido.");
+  }
+
+  const [logs, completedOrders] = await Promise.all([
+    prisma.deliveryLog.findMany({
+      where: {
+        createdAt: { gte: from, lte: to },
+        ...(driverId ? { driverId } : {}),
+      },
+      include: {
+        driver: { select: { id: true, name: true } },
+        order: {
+          select: {
+            id: true,
+            buyerName: true,
+            address: true,
+            onSite: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 2000,
+    }),
+    prisma.order.findMany({
+      where: {
+        status: "COMPLETED",
+        createdAt: { gte: from, lte: to },
+      },
+      select: { total: true, deliveryFee: true, onSite: true },
+    }),
+  ]);
+
+  const byDriver = new Map<string, DriverCuadre>();
+  const summary: CuadresSummary = {
+    netSales: 0,
+    grossSales: 0,
+    deliveryFees: 0,
+    toCollect: 0,
+    toPay: 0,
+    collected: 0,
+    paidOut: 0,
+    pendingCount: 0,
+    settledCount: 0,
+    from: from.toISOString(),
+    to: to.toISOString(),
+  };
+
+  for (const o of completedOrders) {
+    const total = Number(o.total);
+    const fee = o.onSite ? 0 : Number(o.deliveryFee);
+    summary.grossSales += total;
+    summary.netSales += total - fee;
+    summary.deliveryFees += fee;
+  }
+
+  for (const log of logs) {
+    const orderTotal = Number(log.orderTotal);
+    const earning = Number(log.driverEarning);
+    const group = groupPaymentMethod(log.paymentMethod);
+    const { expected, direction } = cuadreExpectation(log.order.onSite, group, orderTotal, earning);
+
+    let entry = byDriver.get(log.driverId);
+    if (!entry) {
+      entry = {
+        driverId: log.driverId,
+        driverName: log.driver.name,
+        balance: 0,
+        toCollect: 0,
+        toPay: 0,
+        pending: [],
+        settled: [],
+      };
+      byDriver.set(log.driverId, entry);
+    }
+
+    const item: CuadreItem = {
+      logId: log.id,
+      orderId: log.orderId,
+      buyerName: log.order.buyerName,
+      address: log.order.address,
+      onSite: log.order.onSite,
+      paymentGroup: group,
+      orderTotal,
+      earning,
+      expected,
+      direction,
+      date: log.createdAt.toISOString(),
+      settled: log.settled,
+      settledAt: log.settledAt ? log.settledAt.toISOString() : null,
+      settledAmount: log.settledAmount !== null ? Number(log.settledAmount) : null,
+      settledNote: log.settledNote,
+    };
+
+    if (log.settled) {
+      entry.settled.push(item);
+      summary.settledCount += 1;
+      const real = item.settledAmount ?? expected;
+      if (direction === "driver_owes") summary.collected += real;
+      if (direction === "business_owes") summary.paidOut += real;
+    } else {
+      entry.pending.push(item);
+      summary.pendingCount += 1;
+      if (direction === "driver_owes") {
+        entry.balance -= expected;
+        entry.toCollect += expected;
+        summary.toCollect += expected;
+      } else if (direction === "business_owes") {
+        entry.balance += expected;
+        entry.toPay += expected;
+        summary.toPay += expected;
+      }
+    }
+  }
+
+  const drivers = [...byDriver.values()].sort(
+    (a, b) => Math.abs(b.balance) - Math.abs(a.balance)
+  );
+
+  return serializePrisma({ drivers, summary });
+}
+
+export async function settleDeliveryLog(logId: string, settledAmount: number, note?: string) {
+  await requireRole(["SUPER_ADMIN", "ADMIN"]);
+
+  const log = await prisma.deliveryLog.findUnique({
+    where: { id: logId },
+    include: { order: { select: { onSite: true } } },
+  });
+  if (!log) throw new Error("Registro de domicilio no encontrado.");
+  if (log.settled) throw new Error("Esta orden ya está cuadrada.");
+
+  if (typeof settledAmount !== "number" || !Number.isFinite(settledAmount) || settledAmount < 0) {
+    throw new Error("Monto inválido para el cuadre.");
+  }
+
+  const updated = await runWithAuditContext(async () => {
+    return prisma.deliveryLog.update({
+      where: { id: logId },
+      data: {
+        settled: true,
+        settledAt: new Date(),
+        settledAmount: new Prisma.Decimal(Math.round(settledAmount)),
+        settledNote: note?.trim() || null,
+      },
+    });
+  });
+
+  revalidatePath("/dashboard/cuadres");
+  revalidatePath("/dashboard/domiciliarios");
+  return serializePrisma(updated);
+}
+
+export async function settleAllDriverLogs(driverId: string, fromISO: string, toISO: string) {
+  await requireRole(["SUPER_ADMIN", "ADMIN"]);
+
+  const from = new Date(fromISO);
+  const to = new Date(toISO);
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+    throw new Error("Rango de fechas inválido.");
+  }
+
+  const pending = await prisma.deliveryLog.findMany({
+    where: {
+      driverId,
+      settled: false,
+      createdAt: { gte: from, lte: to },
+    },
+    include: { order: { select: { onSite: true } } },
+  });
+
+  if (pending.length === 0) {
+    return serializePrisma({ settled: 0, totalExpected: 0 });
+  }
+
+  let totalExpected = 0;
+  await runWithAuditContext(async () => {
+    await prisma.$transaction(
+      pending.map((log) => {
+        const { expected } = cuadreExpectation(
+          log.order.onSite,
+          groupPaymentMethod(log.paymentMethod),
+          Number(log.orderTotal),
+          Number(log.driverEarning)
+        );
+        totalExpected += expected;
+        return prisma.deliveryLog.update({
+          where: { id: log.id },
+          data: {
+            settled: true,
+            settledAt: new Date(),
+            settledAmount: new Prisma.Decimal(expected),
+            settledNote: "Cuadre masivo",
+          },
+        });
+      })
+    );
+  });
+
+  revalidatePath("/dashboard/cuadres");
+  revalidatePath("/dashboard/domiciliarios");
+  return serializePrisma({ settled: pending.length, totalExpected });
 }

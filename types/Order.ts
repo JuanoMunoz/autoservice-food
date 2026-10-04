@@ -1,5 +1,5 @@
 export type LocationType = 'onSite' | 'delivery'
-export type PaymentType = 'cash' | 'card' | 'transfer'
+export type PaymentType = 'cash' | 'transfer'
 export type OrderStatus = 'CREATED' | 'PREPARING' | 'DELIVERING' | 'COMPLETED' | 'CANCELLED'
 
 export interface CartIngredient {
@@ -94,7 +94,7 @@ export interface OrderResponse {
     buyerPhone?: string
     buyerEmail?: string
     status: OrderStatus
-    /** cash | card | transfer — null/undefined = no registrado */
+    /** cash | transfer — null/undefined = no registrado */
     paymentMethod?: string | null
     /** Valor del domicilio cobrado en la orden (0 en local) */
     deliveryFee?: string

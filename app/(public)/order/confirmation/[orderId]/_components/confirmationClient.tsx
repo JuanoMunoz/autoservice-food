@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { cancelOrder, getOrderDetail } from '@/app/(public)/order/actions'
+import { removeActiveOrderId } from '@/utils/activeOrderStorage'
 import { formatCurrency } from '@/utils/cartStorage'
 import { OrderStatus, OrderResponse } from '@/types/Order'
 import { OrderStatusBadge, OrderTimeline } from '@/app/(public)/order/_components/order-status'
@@ -26,6 +27,7 @@ export default function ConfirmationClient({ initialOrder }: ConfirmationClientP
     // Poll order updates periodically
     useEffect(() => {
         if (order.status === 'COMPLETED' || order.status === 'CANCELLED') {
+            removeActiveOrderId(order.id)
             return
         }
 
@@ -36,6 +38,9 @@ export default function ConfirmationClient({ initialOrder }: ConfirmationClientP
                 const freshOrder = await getOrderDetail(order.id)
                 if (isMounted && freshOrder) {
                     setOrder(freshOrder)
+                    if (freshOrder.status === 'COMPLETED' || freshOrder.status === 'CANCELLED') {
+                        removeActiveOrderId(order.id)
+                    }
                 }
             } catch (err) {
                 console.error('Error polling order status:', err)
@@ -55,6 +60,7 @@ export default function ConfirmationClient({ initialOrder }: ConfirmationClientP
         setErrorMessage(null)
         try {
             const updated = await cancelOrder(order.id)
+            removeActiveOrderId(order.id)
             setOrder(updated as any)
             setShowCancelModal(false)
         } catch (error) {

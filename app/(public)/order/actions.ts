@@ -238,7 +238,26 @@ export async function getDrinkDetail(id: string) {
     }
 }
 
-export async function createOrder(details: OrderDetails): Promise<OrderResponse> {
+export const MAX_MANUAL_DELIVERY_FEE = 100000
+
+export interface CreateOrderOptions {
+    /**
+     * Override manual del domicilio (solo para uso admin: createAdminOrder
+     * lo reenvía tras validar rol). El checkout público nunca lo pasa,
+     * así que el flujo público sigue 100% automático.
+     */
+    manualDeliveryFee?: number
+}
+
+export function sanitizeManualDeliveryFee(value: unknown): number | undefined {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return undefined
+    const rounded = Math.round(value)
+    if (rounded < 0) return 0
+    if (rounded > MAX_MANUAL_DELIVERY_FEE) return MAX_MANUAL_DELIVERY_FEE
+    return rounded
+}
+
+export async function createOrder(details: OrderDetails, opts?: CreateOrderOptions): Promise<OrderResponse> {
     try {
         if (details.tableId) {
             const table = await prisma.table.findFirst({
@@ -264,8 +283,13 @@ export async function createOrder(details: OrderDetails): Promise<OrderResponse>
 
         let calculatedDeliveryFee = 0
         if (details.location === 'delivery') {
-            const feeResult = await calculateDeliveryFee(details.deliveryAddress?.coordinates)
-            calculatedDeliveryFee = feeResult.fee
+            const manualFee = sanitizeManualDeliveryFee(opts?.manualDeliveryFee)
+            if (manualFee !== undefined) {
+                calculatedDeliveryFee = manualFee
+            } else {
+                const feeResult = await calculateDeliveryFee(details.deliveryAddress?.coordinates)
+                calculatedDeliveryFee = feeResult.fee
+            }
         }
 
         const backendCalculatedTotal = itemsSubtotal + calculatedDeliveryFee

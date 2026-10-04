@@ -116,6 +116,9 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
           <div className="text-2xl lg:text-3xl font-saira font-black text-slate-100 tracking-tight mb-2">
             {formatCurrency(data.todaySales)}
           </div>
+          <div className="text-xs font-bold text-emerald-400 mb-2">
+            Neto tienda: {formatCurrency(data.todayNetSales)} <span className="text-slate-500 font-semibold">(sin domicilios)</span>
+          </div>
           <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
             <span className="text-xs font-semibold text-slate-400">
               {data.todayOrdersCount} pedidos hoy
@@ -145,6 +148,9 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
           <div className="text-2xl lg:text-3xl font-saira font-black text-slate-100 tracking-tight mb-2">
             {formatCurrency(data.weekSales)}
           </div>
+          <div className="text-xs font-bold text-emerald-400 mb-2">
+            Neto tienda: {formatCurrency(data.weekNetSales)} <span className="text-slate-500 font-semibold">(sin domicilios)</span>
+          </div>
           <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
             <span className="text-xs font-semibold text-slate-400">
               {data.weekOrdersCount} ped. últimos 7d
@@ -173,6 +179,9 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
           </div>
           <div className="text-2xl lg:text-3xl font-saira font-black text-slate-100 tracking-tight mb-2">
             {formatCurrency(data.monthSales)}
+          </div>
+          <div className="text-xs font-bold text-emerald-400 mb-2">
+            Neto tienda: {formatCurrency(data.monthNetSales)} <span className="text-slate-500 font-semibold">(sin domicilios)</span>
           </div>
           <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
             <span className="text-xs font-semibold text-slate-400">
@@ -420,9 +429,14 @@ export default function KPIsClient({ initialData }: KPIsClientProps) {
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-slate-800 text-center">
+              <div className="pt-2 border-t border-slate-800 text-center space-y-1">
                 <p className="text-xs font-bold text-slate-400">
                   Venta Total Acumulada: <span className="text-slate-100 font-extrabold">{formatCurrency(data.totalSales)}</span>
+                </p>
+                <p className="text-xs font-bold text-slate-400">
+                  Neto tienda (sin domicilios): <span className="text-emerald-400 font-extrabold">{formatCurrency(data.totalNetSales)}</span>
+                  <span className="text-slate-500"> · Domicilios pagados a repartidores: </span>
+                  <span className="text-sky-400 font-extrabold">{formatCurrency(data.totalDeliveryFees)}</span>
                 </p>
               </div>
             </div>
