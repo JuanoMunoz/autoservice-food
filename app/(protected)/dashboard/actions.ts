@@ -8,7 +8,8 @@ import { Role } from "@/lib/generated/prisma/enums";
 import { redirect } from "next/navigation";
 import { requireRole } from "@/utils/auth";
 import { serializePrisma } from "@/utils/serializePrisma";
-import { createOrder, type CreateOrderOptions } from "@/app/(public)/order/actions";
+import { createOrder } from "@/app/(public)/order/actions";
+import type { CreateOrderOptions } from "@/app/(public)/order/order-shared";
 import type { OrderDetails } from "@/types/Order";
 import type { AdminOrderCatalog } from "@/types/AdminOrder";
 

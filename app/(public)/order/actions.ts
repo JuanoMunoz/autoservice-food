@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/lib/generated/prisma/client'
 import { OrderDetails, OrderResponse, OrderStatus, DeliveryFeeCalculationResult } from '@/types/Order'
+import { sanitizeManualDeliveryFee, type CreateOrderOptions } from './order-shared'
 
 export async function getProducts() {
     try {
@@ -236,25 +237,6 @@ export async function getDrinkDetail(id: string) {
         console.error('Error fetching drink detail:', error)
         throw new Error('Failed to fetch drink detail')
     }
-}
-
-export const MAX_MANUAL_DELIVERY_FEE = 100000
-
-export interface CreateOrderOptions {
-    /**
-     * Override manual del domicilio (solo para uso admin: createAdminOrder
-     * lo reenvía tras validar rol). El checkout público nunca lo pasa,
-     * así que el flujo público sigue 100% automático.
-     */
-    manualDeliveryFee?: number
-}
-
-export function sanitizeManualDeliveryFee(value: unknown): number | undefined {
-    if (typeof value !== 'number' || !Number.isFinite(value)) return undefined
-    const rounded = Math.round(value)
-    if (rounded < 0) return 0
-    if (rounded > MAX_MANUAL_DELIVERY_FEE) return MAX_MANUAL_DELIVERY_FEE
-    return rounded
 }
 
 export async function createOrder(details: OrderDetails, opts?: CreateOrderOptions): Promise<OrderResponse> {
