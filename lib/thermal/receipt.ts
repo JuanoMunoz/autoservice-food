@@ -158,6 +158,12 @@ function safeNumber(str: string | undefined): number {
     return Number.isFinite(n) ? n : 0
 }
 
+function paymentLabelThermal(method?: string | null): string {
+    if (method === 'cash') return 'EFECTIVO'
+    if (method === 'transfer') return 'TRANSFERENCIA'
+    return 'NO REGISTRADO'
+}
+
 /**
  * Genera los bytes ESC/POS del comprobante para la DIG-C58 (58mm).
  * Espejo en texto de InvoiceReceipt.tsx, sin logo ni emojis.
@@ -187,8 +193,12 @@ export function buildReceiptBytes(order: OrderResponse): Uint8Array {
     wrapLine(b, `Cliente: ${order.buyerName || 'Cliente Kiosko'}`)
     if (order.buyerPhone) pairLine(b, 'Tel:', order.buyerPhone)
     pairLine(b, 'Servicio:', order.onSite ? 'En local' : 'Domicilio')
+    if (order.onSite && order.serveAtTable != null) {
+        wrapLine(b, order.serveAtTable ? 'Entregar en mesa' : 'Entregar para llevar')
+    }
     if (order.table) wrapLine(b, `Mesa: ${order.table.name || `Mesa ${order.table.number}`}`)
     if (!order.onSite && order.address) wrapLine(b, `Dir: ${order.address}`)
+    if (!order.onSite && order.addressReference) wrapLine(b, `Ref: ${order.addressReference}`)
     separator(b)
 
     // Ítems
@@ -203,7 +213,9 @@ export function buildReceiptBytes(order: OrderResponse): Uint8Array {
         const name = item.product?.name || item.drink?.name || 'Producto'
         const unit = safeNumber(item.unitPrice)
         const total = unit * item.quantity
+        b.bold(true)
         pairLine(b, `${item.quantity}x ${name}`, formatCOP(total))
+        b.bold(false)
         // si el nombre era largo, pairLine ya lo partió en 2 líneas
         b.align(2).line(`c/u ${formatCOP(unit)}`).align(0)
         for (const ex of item.extras || []) {
@@ -212,19 +224,32 @@ export function buildReceiptBytes(order: OrderResponse): Uint8Array {
         if (item.sauces && item.sauces.length > 0) {
             wrapLine(b, `Salsas: ${item.sauces.map((s) => s.sauce.name).join(', ')}`, '  ')
         }
+        if (item.note) {
+            wrapLine(b, `Nota: ${item.note}`, '  ')
+        }
     }
     separator(b)
 
-    // Totales
+    // Totales desglosados (retrocompatible: fee 0 en órdenes viejas)
     const totalNum = safeNumber(order.total)
-    pairLine(b, 'Subtotal:', formatCOP(totalNum))
-    if (!order.onSite) pairLine(b, 'Domicilio:', 'INCLUIDO')
+    const feeNum = safeNumber(order.deliveryFee)
+    const subtotalNum = order.onSite ? totalNum : Math.max(0, totalNum - feeNum)
+    pairLine(b, 'Subtotal:', formatCOP(subtotalNum))
+    if (!order.onSite) pairLine(b, 'Domicilio:', formatCOP(feeNum))
     b.bold(true).size(0x11)
     centered(b, 'TOTAL A PAGAR')
     centered(b, formatCOP(totalNum))
     b.size(0).bold(false)
-    centered(b, 'Estado: PAGADO')
+    pairLine(b, 'Pago:', paymentLabelThermal(order.paymentMethod))
     separator(b)
+
+    // Observaciones generales (solo si existen, con wrap a 32 cols)
+    if (order.notes) {
+        b.bold(true).line('OBS:')
+        b.bold(false)
+        wrapLine(b, order.notes)
+        separator(b)
+    }
 
     // Pie
     centered(b, 'GRACIAS POR TU COMPRA!')

@@ -878,11 +878,18 @@ function KDSTicketCard({
                                         ))}
                                     </div>
                                 )}
+
+                                {item.note && (
+                                    <p className="pl-4 text-xs font-bold text-amber-200/90 break-words">Nota: {item.note}</p>
+                                )}
                             </div>
                         )
                     })
                 ) : (
                     <p className="text-xs text-slate-500 italic">Sin detalle de productos</p>
+                )}
+                {order.notes && (
+                    <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-xs font-bold text-amber-200 break-words">Obs: {order.notes}</p>
                 )}
             </div>
 

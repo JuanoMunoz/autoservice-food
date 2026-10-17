@@ -1,7 +1,6 @@
 'use client'
 
 import Image from 'next/image'
-import { CheckCircle2 } from 'lucide-react'
 import { OrderResponse } from '@/types/Order'
 import { formatCurrency } from '@/utils/cartStorage'
 
@@ -23,6 +22,13 @@ export default function InvoiceReceipt({ order, note }: InvoiceReceiptProps) {
     })
 
     const invoiceNumber = `CP-${order.id.toString().padStart(6, '0')}`
+    const totalNum = parseFloat(order.total || '0') || 0
+    const deliveryFeeNum = parseFloat(order.deliveryFee || '0') || 0
+    const subtotalNum = order.onSite ? totalNum : Math.max(0, totalNum - deliveryFeeNum)
+    const paymentLabel =
+        order.paymentMethod === 'cash' ? 'EFECTIVO'
+            : order.paymentMethod === 'transfer' ? 'TRANSFERENCIA'
+                : 'NO REGISTRADO'
 
     return (
         <div className="bg-white border-2 border-slate-300 rounded-sm p-6 sm:p-8 shadow-md space-y-6 relative print:shadow-none print:border-none print:p-0 print:w-full font-mono text-slate-900">
@@ -71,6 +77,12 @@ export default function InvoiceReceipt({ order, note }: InvoiceReceiptProps) {
                     <span className="text-slate-500 font-bold block uppercase text-[10px]">Tipo de Servicio</span>
                     <span className="font-black text-slate-900">{order.onSite ? 'En el local (Para comer)' : 'A domicilio'}</span>
                 </div>
+                {order.onSite && order.serveAtTable != null && (
+                    <div>
+                        <span className="text-slate-500 font-bold block uppercase text-[10px]">Entrega</span>
+                        <span className="font-black text-slate-900">{order.serveAtTable ? 'Entregar en mesa' : 'Entregar para llevar'}</span>
+                    </div>
+                )}
                 {order.table && (
                     <div>
                         <span className="text-slate-500 font-bold block uppercase text-[10px]">Mesa</span>
@@ -79,10 +91,20 @@ export default function InvoiceReceipt({ order, note }: InvoiceReceiptProps) {
                         </span>
                     </div>
                 )}
-                {!order.onSite && order.address && (
-                    <div className="col-span-2 pt-1 border-t border-slate-100">
-                        <span className="text-slate-500 font-bold block uppercase text-[10px]">Dirección de Entrega</span>
-                        <span className="font-black text-slate-900 break-words">{order.address}</span>
+                {!order.onSite && (order.address || order.addressReference || order.buyerPhone) && (
+                    <div className="col-span-2 pt-1 border-t border-slate-100 space-y-1">
+                        {order.address && (
+                            <div>
+                                <span className="text-slate-500 font-bold block uppercase text-[10px]">Dirección de Entrega</span>
+                                <span className="font-black text-slate-900 break-words [overflow-wrap:anywhere] whitespace-pre-wrap">{order.address}</span>
+                            </div>
+                        )}
+                        {order.addressReference && (
+                            <div>
+                                <span className="text-slate-500 font-bold block uppercase text-[10px]">Barrio / Referencia</span>
+                                <span className="font-bold text-slate-800 break-words [overflow-wrap:anywhere] whitespace-pre-wrap">{order.addressReference}</span>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -94,7 +116,7 @@ export default function InvoiceReceipt({ order, note }: InvoiceReceiptProps) {
                     <span>Total</span>
                 </div>
 
-                <div className="space-y-3 divide-y divide-slate-100 text-xs">
+                <div className="space-y-3 divide-y divide-slate-100 text-sm">
                     {order.items && order.items.length > 0 ? (
                         order.items.map((item) => {
                             const itemName = item.product?.name || item.drink?.name || 'Producto'
@@ -104,14 +126,14 @@ export default function InvoiceReceipt({ order, note }: InvoiceReceiptProps) {
                             return (
                                 <div key={item.id} className="pt-2 flex justify-between items-start gap-4">
                                     <div className="space-y-0.5 flex-1">
-                                        <div className="flex items-center gap-1.5 font-black text-slate-900 text-sm">
+                                        <div className="flex items-center gap-1.5 font-black text-slate-900 text-base">
                                             <span className="text-secondary">{item.quantity}x</span>
                                             <span>{itemName}</span>
                                         </div>
 
                                         {/* Toppings / Extras */}
                                         {item.extras && item.extras.length > 0 && (
-                                            <div className="pl-5 text-[11px] text-slate-600 font-medium space-y-0.5">
+                                            <div className="pl-5 text-xs text-slate-600 font-medium space-y-0.5">
                                                 {item.extras.map((ex, i) => (
                                                     <div key={i} className="flex justify-between">
                                                         <span>+ {ex.ingredient.name}</span>
@@ -123,15 +145,22 @@ export default function InvoiceReceipt({ order, note }: InvoiceReceiptProps) {
 
                                         {/* Sauces */}
                                         {item.sauces && item.sauces.length > 0 && (
-                                            <div className="pl-5 text-[11px] text-slate-500 font-medium">
+                                            <div className="pl-5 text-xs text-slate-500 font-medium break-words">
                                                 <span>Salsas: {item.sauces.map((s) => s.sauce.name).join(', ')}</span>
+                                            </div>
+                                        )}
+
+                                        {/* Nota por ítem */}
+                                        {item.note && (
+                                            <div className="pl-5 text-xs font-bold text-slate-700 break-words [overflow-wrap:anywhere] whitespace-pre-wrap">
+                                                <span>Nota: {item.note}</span>
                                             </div>
                                         )}
                                     </div>
 
                                     <div className="text-right shrink-0">
-                                        <span className="font-black text-slate-900 text-sm">{formatCurrency(itemTotal)}</span>
-                                        <span className="block text-[10px] text-slate-400 font-medium">c/u {formatCurrency(unitPrice)}</span>
+                                        <span className="font-black text-slate-900 text-base">{formatCurrency(itemTotal)}</span>
+                                        <span className="block text-xs text-slate-400 font-medium">c/u {formatCurrency(unitPrice)}</span>
                                     </div>
                                 </div>
                             )
@@ -146,25 +175,31 @@ export default function InvoiceReceipt({ order, note }: InvoiceReceiptProps) {
             <div className="border-t-2 border-dashed border-slate-300 pt-4 space-y-2 text-xs">
                 <div className="flex justify-between items-center text-slate-600 font-bold">
                     <span>Subtotal de Productos</span>
-                    <span>{formatCurrency(parseFloat(order.total))}</span>
+                    <span>{formatCurrency(subtotalNum)}</span>
                 </div>
                 {!order.onSite && (
                     <div className="flex justify-between items-center text-slate-600 font-bold">
                         <span>Cargo por Domicilio</span>
-                        <span className="text-emerald-700">INCLUIDO</span>
+                        <span>{formatCurrency(deliveryFeeNum)}</span>
                     </div>
                 )}
                 <div className="border-t border-slate-300 pt-2 flex justify-between items-center text-base font-black text-slate-900">
                     <span>TOTAL A PAGAR</span>
-                    <span className="text-xl font-black text-secondary">{formatCurrency(parseFloat(order.total))}</span>
+                    <span className="text-xl font-black text-secondary">{formatCurrency(totalNum)}</span>
                 </div>
-                <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 pt-1">
-                    <span>Estado de Pago:</span>
-                    <span className="inline-flex items-center gap-1 text-emerald-700 font-black uppercase">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> PAGADO
-                    </span>
+                <div className="flex items-center justify-between text-xs font-bold text-slate-500 pt-1">
+                    <span>Método de Pago:</span>
+                    <span className="font-black uppercase text-slate-900">{paymentLabel}</span>
                 </div>
             </div>
+
+            {/* Observaciones generales (solo si existen) */}
+            {order.notes && (
+                <div className="border-t border-dashed border-slate-300 pt-3 text-xs">
+                    <span className="text-slate-500 font-bold block uppercase text-[10px]">Observaciones</span>
+                    <p className="font-bold text-slate-900 break-words [overflow-wrap:anywhere] whitespace-pre-wrap">{order.notes}</p>
+                </div>
+            )}
 
             {/* Receipt Footer Message */}
             <div className="text-center pt-4 border-t border-dashed border-slate-300 text-[11px] font-semibold text-slate-600 space-y-1.5">

@@ -26,6 +26,7 @@ export interface CartProduct {
     quantity: number
     ingredients: CartIngredient[]
     sauces: CartSauce[]
+    note?: string
 }
 
 export interface CartDrink {
@@ -37,6 +38,7 @@ export interface CartDrink {
     imageRoute?: string
     price: number
     quantity: number
+    note?: string
 }
 
 export type CartItem = CartProduct | CartDrink
@@ -70,6 +72,9 @@ export interface OrderDetails {
     paymentType?: PaymentType
     total: number
     tableId?: string
+    notes?: string
+    /** Solo consumo local: true = en mesa, false = para llevar */
+    serveAtTable?: boolean
 }
 
 export interface Cart {
@@ -90,6 +95,8 @@ export interface OrderResponse {
     total: string
     onSite: boolean
     address: string
+    addressReference?: string | null
+    notes?: string | null
     buyerName: string
     buyerPhone?: string
     buyerEmail?: string
@@ -98,6 +105,8 @@ export interface OrderResponse {
     paymentMethod?: string | null
     /** Valor del domicilio cobrado en la orden (0 en local) */
     deliveryFee?: string
+    /** Solo consumo local: true = en mesa, false = para llevar, null = sin dato (orden anterior) */
+    serveAtTable?: boolean | null
     createdAt: string
     updatedAt: string
     table?: {
@@ -109,6 +118,7 @@ export interface OrderResponse {
         id: string
         quantity: number
         unitPrice: string
+        note?: string | null
         product?: {
             id: string
             name: string

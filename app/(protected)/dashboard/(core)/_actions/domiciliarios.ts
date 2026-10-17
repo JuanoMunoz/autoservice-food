@@ -322,8 +322,6 @@ export async function getDomiciliariosKPIs() {
   });
 }
 
-export type { SettlementPaymentGroup };
-
 export interface SettlementDetail {
   logId: string;
   orderId: number;

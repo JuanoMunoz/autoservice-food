@@ -119,6 +119,8 @@ model Order {
   total      Decimal
   onSite     Boolean     @default(true)
   address    String
+  addressReference String?
+  notes String?
   buyerName  String
   buyerPhone String
   buyerEmail String?
@@ -133,6 +135,8 @@ model Order {
   paymentMethod String?
   // Valor del domicilio cobrado en la orden (0 en consumo local)
   deliveryFee Decimal @default(0)
+  // Consumo local: true = entregar en mesa, false = para llevar (null = orden anterior sin dato)
+  serveAtTable Boolean?
 
   @@index([tableId])
 }
@@ -161,6 +165,7 @@ model OrderItem {
 
   quantity  Int     @default(1)
   unitPrice Decimal
+  note String?
 
   sauces OrderItemSauce[]
   extras OrderItemIngredient[]

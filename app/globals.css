@@ -69,3 +69,29 @@ button {
   background: var(--color-border);
   border-radius: 2px;
 }
+
+/* CheesePapas brand utilities (landing) */
+@keyframes cp-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.cp-marquee-track {
+  animation: cp-marquee 30s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cp-marquee-track {
+    animation: none;
+  }
+}
+
+.cp-outline-num {
+  -webkit-text-stroke: 1.5px rgba(240, 167, 31, 0.55);
+  color: transparent;
+}
+
+.cp-dots {
+  background-image: radial-gradient(rgba(240, 167, 31, 0.13) 1px, transparent 1px);
+  background-size: 22px 22px;
+}

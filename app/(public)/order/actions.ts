@@ -281,6 +281,8 @@ export async function createOrder(details: OrderDetails, opts?: CreateOrderOptio
                 total: new Prisma.Decimal(backendCalculatedTotal),
                 onSite: details.location === 'onSite',
                 address: details.deliveryAddress?.street || '',
+                addressReference: details.deliveryAddress?.reference?.trim() || null,
+                notes: details.notes?.slice(0, 300).trim() || null,
                 buyerName: details.buyerName,
                 buyerPhone: details.buyerPhone,
                 buyerEmail: details.buyerEmail || null,
@@ -288,10 +290,12 @@ export async function createOrder(details: OrderDetails, opts?: CreateOrderOptio
                 status: 'CREATED',
                 paymentMethod: details.paymentType || null,
                 deliveryFee: new Prisma.Decimal(calculatedDeliveryFee),
+                serveAtTable: details.location === 'onSite' ? (details.serveAtTable ?? true) : null,
                 items: {
                     create: details.items.map((item) => ({
                         quantity: item.quantity || 1,
                         unitPrice: new Prisma.Decimal(item.price),
+                        note: (item as { note?: string }).note?.slice(0, 140).trim() || null,
                         ...(item.type === 'product'
                             ? { productId: (item as any).productId || item.id }
                             : { drinkId: (item as any).drinkId || item.id }),
@@ -362,6 +366,8 @@ export async function getOrderDetail(orderId: number): Promise<OrderResponse> {
             total: order.total.toString(),
             onSite: order.onSite,
             address: order.address,
+            addressReference: (order as unknown as { addressReference?: string | null }).addressReference ?? null,
+            notes: (order as unknown as { notes?: string | null }).notes ?? null,
             buyerName: order.buyerName,
             buyerPhone: order.buyerPhone || undefined,
             buyerEmail: order.buyerEmail || undefined,
@@ -370,6 +376,7 @@ export async function getOrderDetail(orderId: number): Promise<OrderResponse> {
             updatedAt: order.updatedAt.toISOString(),
             paymentMethod: order.paymentMethod ?? null,
             deliveryFee: order.deliveryFee.toString(),
+            serveAtTable: order.serveAtTable ?? null,
             table: order.table
                 ? { id: order.table.id, number: order.table.number, name: order.table.name }
                 : null,
@@ -377,6 +384,7 @@ export async function getOrderDetail(orderId: number): Promise<OrderResponse> {
                 id: item.id,
                 quantity: item.quantity,
                 unitPrice: item.unitPrice.toString(),
+                note: (item as unknown as { note?: string | null }).note ?? null,
                 product: item.product
                     ? {
                         id: item.product.id,
@@ -456,6 +464,8 @@ export async function getAllActiveOrders(): Promise<OrderResponse[]> {
             total: order.total.toString(),
             onSite: order.onSite,
             address: order.address,
+            addressReference: (order as unknown as { addressReference?: string | null }).addressReference ?? null,
+            notes: (order as unknown as { notes?: string | null }).notes ?? null,
             buyerName: order.buyerName,
             buyerPhone: order.buyerPhone || undefined,
             buyerEmail: order.buyerEmail || undefined,
@@ -464,6 +474,7 @@ export async function getAllActiveOrders(): Promise<OrderResponse[]> {
             updatedAt: order.updatedAt.toISOString(),
             paymentMethod: order.paymentMethod ?? null,
             deliveryFee: order.deliveryFee.toString(),
+            serveAtTable: order.serveAtTable ?? null,
             table: order.table
                 ? { id: order.table.id, number: order.table.number, name: order.table.name }
                 : null,
@@ -471,6 +482,7 @@ export async function getAllActiveOrders(): Promise<OrderResponse[]> {
                 id: item.id,
                 quantity: item.quantity,
                 unitPrice: item.unitPrice.toString(),
+                note: (item as unknown as { note?: string | null }).note ?? null,
                 product: item.product
                     ? {
                         id: item.product.id,

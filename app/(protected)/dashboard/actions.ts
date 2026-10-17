@@ -135,6 +135,7 @@ export async function findLatestCustomerByPhone(phone: string) {
             buyerPhone: true,
             buyerEmail: true,
             address: true,
+            addressReference: true,
             onSite: true,
         },
     });
