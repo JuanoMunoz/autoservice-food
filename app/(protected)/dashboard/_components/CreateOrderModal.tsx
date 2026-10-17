@@ -500,7 +500,7 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
                 {/* Main: catalog left, summary right (landscape) / stacked (portrait) */}
                 <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
                     {/* Catalog */}
-                    <section className="flex min-h-0 flex-1 flex-col overflow-hidden" aria-label="Catálogo">
+                    <section className={`${detailsOpen ? 'hidden md:flex' : 'flex'} min-h-0 flex-1 flex-col overflow-hidden`} aria-label="Catálogo">
                         <div className="shrink-0 space-y-3 border-b border-slate-800 p-4">
                             <div className="relative">
                                 <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
@@ -533,7 +533,7 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
                                         return (
                                             <div
                                                 key={`${card.kind}-${card.id}`}
-                                                className={`flex min-h-[120px] flex-col justify-between rounded-2xl border p-3 transition-all active:scale-[0.98] ${added ? 'border-amber-400 bg-amber-500/10 shadow-[0_0_0_1px_var(--color-amber-500)]' : 'border-slate-700 bg-slate-950/70 hover:border-slate-600'}`}
+                                                className={`flex min-h-[152px] flex-col justify-between rounded-2xl border p-3.5 transition-all active:scale-[0.98] ${added ? 'border-amber-400 bg-amber-500/10 shadow-[0_0_0_1px_var(--color-amber-500)]' : 'border-slate-700 bg-slate-950/70 hover:border-slate-600'}`}
                                             >
                                                 <button
                                                     type="button"
@@ -545,9 +545,9 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
                                                         <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">{card.kind === 'product' ? 'Producto' : 'Bebida'}</span>
                                                         {added && <span className="flex items-center gap-1 rounded-full bg-amber-500 px-2 py-0.5 text-[11px] font-black text-slate-950"><Check className="h-3 w-3" /> {qty}</span>}
                                                     </span>
-                                                    <span className="line-clamp-2 text-base font-black leading-snug text-white">{card.name}</span>
-                                                    <span className="text-lg font-black text-amber-300">{formatCurrency(card.price)}</span>
-                                                    {card.hasOptions && !added && <span className="text-[11px] font-bold text-slate-400">Toca para personalizar</span>}
+                                                    <span className="line-clamp-3 text-2xl font-black leading-tight text-white">{card.name}</span>
+                                                    <span className="text-xl font-black text-amber-300">{formatCurrency(card.price)}</span>
+                                                    {card.hasOptions && !added && <span className="text-xs font-bold text-slate-400">Toca para personalizar</span>}
                                                 </button>
                                                 {added ? (
                                                     <div className="mt-2 flex items-center justify-between rounded-xl bg-slate-900 p-1" role="group" aria-label={`Cantidad de ${card.name}`}>
@@ -569,21 +569,21 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
                     </section>
 
                     {/* Summary */}
-                    <section className="flex min-h-0 w-full flex-col border-t border-slate-800 bg-slate-950/60 md:w-[400px] md:shrink-0 md:border-l md:border-t-0 lg:w-[430px]" aria-label="Resumen del pedido">
+                    <section className={`flex w-full flex-col border-t border-slate-800 bg-slate-950/60 md:min-h-0 md:w-[400px] md:flex-none md:overflow-visible md:border-l md:border-t-0 lg:w-[430px] ${detailsOpen ? 'min-h-0 flex-1 overflow-y-auto overscroll-contain' : 'shrink-0'}`} aria-label="Resumen del pedido">
                         <div className="flex shrink-0 items-center justify-between px-4 pt-3">
                             <h3 className="text-base font-black text-white">Resumen</h3>
                             <span className="text-xs font-bold text-slate-500">{lines.length} ítem(s) · {lines.reduce((n, l) => n + l.quantity, 0)} uds</span>
                         </div>
 
-                        <div className="max-h-[28vh] min-h-0 flex-1 space-y-2 overflow-y-auto p-4 md:max-h-none">
+                        <div className={`space-y-2 p-4 md:min-h-0 md:max-h-none md:flex-1 md:overflow-y-auto ${detailsOpen ? '' : 'max-h-[28vh] min-h-0 flex-1 overflow-y-auto'}`}>
                             {lines.length === 0 ? (
                                 <p className="py-8 text-center text-base text-slate-500">Toca una tarjeta para comenzar.<br />1 toque = 1 unidad.</p>
                             ) : lines.map((line) => (
                                 <div key={line.id} className="rounded-xl border border-slate-800 bg-slate-900 p-3">
                                     <div className="flex items-start justify-between gap-2">
                                         <div className="min-w-0 flex-1">
-                                            <p className="truncate text-base font-black text-white">{line.quantity}x {line.label}</p>
-                                            <p className="text-xs text-slate-500">{formatCurrency(line.price)} c/u{line.extrasLabel ? ` · ${line.extrasLabel}` : ''}</p>
+                                            <p className="truncate text-lg font-black text-white">{line.quantity}x {line.label}</p>
+                                            <p className="text-sm text-slate-400">{formatCurrency(line.price)} c/u{line.extrasLabel ? ` · ${line.extrasLabel}` : ''}</p>
                                             {line.note && <p className="mt-1 break-words rounded-lg bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-200">📝 {line.note}</p>}
                                         </div>
                                         <span className="shrink-0 text-base font-black text-amber-300">{formatCurrency(line.price * line.quantity)}</span>
