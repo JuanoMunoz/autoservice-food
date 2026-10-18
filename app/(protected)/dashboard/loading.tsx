@@ -28,13 +28,8 @@ export default function DashboardLoading() {
             {Array.from({ length: 3 }).map((_, j) => (
               <div
                 key={j}
-                className="shrink-0 flex flex-col gap-3 p-4 rounded-sm"
-                style={{
-                  width: "240px",
-                  background: "var(--color-surface)",
-                  border: "1px solid var(--color-border)",
-                  borderLeft: "2px solid var(--color-skeleton)",
-                }}
+                className="shrink-0 flex flex-col gap-3 p-4 rounded-xl bg-slate-900 border border-slate-800 border-l-2 border-l-slate-700"
+                style={{ width: "240px" }}
               >
                 <Skeleton className="h-3 w-16" />
                 <Skeleton className="h-4 w-full" />

@@ -1,6 +1,7 @@
 import Sidebar from "@/app/_components/sidebar"
 import BottomNav from "@/app/_components/bottom-nav"
 import { requireSession } from "@/utils/auth"
+import type { Role } from "@/types/User"
 
 export default async function ProtectedLayout({
   children,
@@ -10,8 +11,8 @@ export default async function ProtectedLayout({
   const session = await requireSession()
   return (
     <div
-      className="flex min-h-dvh"
-      style={{ background: "var(--color-background)" }}
+      className="flex min-h-dvh bg-slate-950 text-slate-100"
+      style={{ colorScheme: "dark" }}
     >
       {/* Desktop sidebar */}
       <Sidebar session={session} />
@@ -22,7 +23,7 @@ export default async function ProtectedLayout({
       </main>
 
       {/* Mobile bottom nav */}
-      <BottomNav role={(session.user as any).role} />
+      <BottomNav role={session.user.role as Role} />
     </div>
   )
 }
