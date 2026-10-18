@@ -27,6 +27,7 @@ export async function createIngredient(data: {
   price: number;
   type: IngredientType;
   isTopping: boolean;
+  unit?: string;
 }) {
   const session = await requireRole(["SUPER_ADMIN", "ADMIN"]);
 
@@ -44,6 +45,7 @@ export async function createIngredient(data: {
         price: data.price,
         type: data.type,
         isTopping: data.isTopping,
+        unit: data.unit?.trim() || "un",
         createdByUserId: session.user.id,
       },
     });
@@ -62,6 +64,7 @@ export async function updateIngredient(
     price: number;
     type: IngredientType;
     isTopping: boolean;
+    unit?: string;
   }
 ) {
   await requireRole(["SUPER_ADMIN", "ADMIN"]);
@@ -81,6 +84,7 @@ export async function updateIngredient(
         price: data.price,
         type: data.type,
         isTopping: data.isTopping,
+        unit: data.unit?.trim() || "un",
       },
     });
   });

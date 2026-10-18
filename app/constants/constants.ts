@@ -1,4 +1,4 @@
-import { LayoutDashboard, UserPlus, Flame, Package, GlassWater, Utensils, Settings, TrendingUp, Table2, Bike, HandCoins } from "lucide-react";
+import { LayoutDashboard, UserPlus, Flame, Package, Boxes, GlassWater, Utensils, Settings, TrendingUp, Table2, Bike, HandCoins } from "lucide-react";
 import { NavItem } from "../../types/User";
 
 export const navItems: NavItem[] = [
@@ -9,6 +9,7 @@ export const navItems: NavItem[] = [
     { href: "/dashboard/add-user", icon: UserPlus, label: "Agregar Staff", roles: ["SUPER_ADMIN", "ADMIN"] },
     { href: "/dashboard/productos", icon: Utensils, label: "Productos", roles: ["SUPER_ADMIN", "ADMIN"] },
     { href: "/dashboard/ingredientes", icon: Package, label: "Ingredientes", roles: ["SUPER_ADMIN", "ADMIN"] },
+    { href: "/dashboard/inventario", icon: Boxes, label: "Inventario", roles: ["SUPER_ADMIN", "ADMIN"] },
     { href: "/dashboard/bebidas", icon: GlassWater, label: "Bebidas", roles: ["SUPER_ADMIN", "ADMIN"] },
     { href: "/dashboard/salsas", icon: Flame, label: "Salsas", roles: ["SUPER_ADMIN", "ADMIN"] },
     { href: "/dashboard/mesas", icon: Table2, label: "Mesas", roles: ["SUPER_ADMIN", "ADMIN"] },

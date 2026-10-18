@@ -84,6 +84,8 @@ model Ingredients {
   price       Decimal
   type        IngredientType
   isTopping   Boolean        @default(false)
+  // Unidad de medida para inventario (kg, g, lt, ml, un...). No afecta el menú.
+  unit        String         @default("un")
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
@@ -92,6 +94,8 @@ model Ingredients {
 
   orderItemExtras    OrderItemIngredient[]
   productIngredients ProductIngredient[]
+  stockRows          IngredientStock[]
+  movements          InventoryMovement[]
 
   @@index([createdByUserId])
 }
@@ -240,6 +244,7 @@ model User {
   createdIngredients Ingredients[]   @relation("IngredientsCreatedBy")
   createdProducts    Products[]      @relation("ProductsCreatedBy")
   configurations     Configuration[] @relation("ConfigurationCreatedBy")
+  inventoryMovements InventoryMovement[] @relation("InventoryMovementUser")
 
   @@unique([email])
   @@map("user")
@@ -354,5 +359,69 @@ model DeliveryLog {
   @@index([driverId])
   @@index([createdAt])
   @@map("delivery_log")
+}
+
+// ── Inventario de ingredientes ─────────────────────────────────────────────
+// Módulo aditivo y desacoplado del menú/pedidos.
+
+enum MovementType {
+  INITIAL
+  PURCHASE
+  TRANSFER
+  ADJUSTMENT
+  WASTE
+}
+
+model StockLocation {
+  id        String   @id @default(uuid())
+  name      String
+  code      String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stocks    IngredientStock[]   @relation("StockAtLocation")
+  movesFrom InventoryMovement[] @relation("MovementFrom")
+  movesTo   InventoryMovement[] @relation("MovementTo")
+
+  @@map("stock_location")
+}
+
+model IngredientStock {
+  id           String        @id @default(uuid())
+  ingredientId String
+  ingredient   Ingredients   @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  locationId   String
+  location     StockLocation @relation("StockAtLocation", fields: [locationId], references: [id], onDelete: Cascade)
+  quantity     Decimal       @default(0)
+  minQuantity  Decimal       @default(0)
+  updatedAt    DateTime      @updatedAt
+
+  @@unique([ingredientId, locationId])
+  @@index([locationId])
+  @@map("ingredient_stock")
+}
+
+model InventoryMovement {
+  id             String        @id @default(uuid())
+  ingredientId   String
+  ingredient     Ingredients   @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  type           MovementType
+  fromLocationId String?
+  fromLocation   StockLocation? @relation("MovementFrom", fields: [fromLocationId], references: [id], onDelete: SetNull)
+  toLocationId   String?
+  toLocation     StockLocation? @relation("MovementTo", fields: [toLocationId], references: [id], onDelete: SetNull)
+  quantity       Decimal
+  reason         String?
+  note           String?
+  userId         String?
+  user           User?         @relation("InventoryMovementUser", fields: [userId], references: [id], onDelete: SetNull)
+  createdAt      DateTime      @default(now())
+
+  @@index([ingredientId, createdAt])
+  @@index([fromLocationId])
+  @@index([toLocationId])
+  @@index([createdAt])
+  @@map("inventory_movement")
 }
 

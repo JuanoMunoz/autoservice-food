@@ -98,6 +98,7 @@ export function IngredientesClient({ initialData }: IngredientesClientProps) {
     const [priceStr, setPriceStr] = useState("");
     const [type, setType] = useState<IngredientType>("FOOD");
     const [isTopping, setIsTopping] = useState(false);
+    const [unit, setUnit] = useState("un");
 
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
@@ -105,7 +106,7 @@ export function IngredientesClient({ initialData }: IngredientesClientProps) {
 
     const resetForm = () => {
         setName(""); setDescription(""); setImageRoute("");
-        setPriceStr(""); setType("FOOD"); setIsTopping(false);
+        setPriceStr(""); setType("FOOD"); setIsTopping(false); setUnit("un");
         setEditingItem(null);
     };
 
@@ -120,6 +121,7 @@ export function IngredientesClient({ initialData }: IngredientesClientProps) {
         setPriceStr(String(numPrice));
         setType(item.type);
         setIsTopping(item.isTopping);
+        setUnit(item.unit ?? "un");
         setFormOpen(true);
     };
 
@@ -155,14 +157,14 @@ export function IngredientesClient({ initialData }: IngredientesClientProps) {
         startTransition(async () => {
             try {
                 if (editingItem) {
-                    const updated = await updateIngredient(editingItem.id, { name, description, imageRoute: imageRoute || undefined, price, type, isTopping });
+                    const updated = await updateIngredient(editingItem.id, { name, description, imageRoute: imageRoute || undefined, price, type, isTopping, unit });
                     toast.success("Ingrediente actualizado");
                     setData((prev) => prev.map((s) => s.id === editingItem.id
                         ? { ...s, ...updated, createdAt: new Date(updated.createdAt), updatedAt: new Date(updated.updatedAt) }
                         : s
                     ));
                 } else {
-                    const created = await createIngredient({ name, description, imageRoute: imageRoute || undefined, price, type, isTopping });
+                    const created = await createIngredient({ name, description, imageRoute: imageRoute || undefined, price, type, isTopping, unit });
                     toast.success("Ingrediente creado");
                     setData((prev) => [{ ...created, createdAt: new Date(created.createdAt), updatedAt: new Date(created.updatedAt) }, ...prev]);
                 }
@@ -237,6 +239,20 @@ export function IngredientesClient({ initialData }: IngredientesClientProps) {
                                         <option value="FOOD">Comida</option>
                                         <option value="DRINK">Bebida</option>
                                     </select>
+                                </div>
+                                <div className="flex flex-col gap-1.5 w-28">
+                                    <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Unidad</label>
+                                    <input type="text" value={unit} onChange={(e) => setUnit(e.target.value)}
+                                        placeholder="un" list="ingredient-units"
+                                        className="w-full px-3.5 py-2.5 text-sm bg-slate-950 border border-slate-800 rounded-xl text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-700 transition-colors" />
+                                    <datalist id="ingredient-units">
+                                        <option value="un" />
+                                        <option value="kg" />
+                                        <option value="g" />
+                                        <option value="lt" />
+                                        <option value="ml" />
+                                        <option value="porcion" />
+                                    </datalist>
                                 </div>
                                 <div className="flex flex-col gap-1.5 justify-end">
                                     <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Topping</label>
