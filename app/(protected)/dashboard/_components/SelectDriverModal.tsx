@@ -92,7 +92,7 @@ export default function SelectDriverModal({
             </div>
             <div>
               <h3 className="text-base font-black text-white">
-                Finalizar Orden #{order.id}
+                Finalizar Orden #{order.orderNumber ?? order.id}
               </h3>
               <p className="text-xs text-slate-400">
                 Selecciona el domiciliario asignado para esta entrega

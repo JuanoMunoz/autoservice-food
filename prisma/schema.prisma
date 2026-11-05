@@ -120,6 +120,7 @@ model Products {
 
 model Order {
   id         Int         @id @default(autoincrement())
+  orderNumber Int        @default(1)
   total      Decimal
   onSite     Boolean     @default(true)
   address    String
@@ -143,6 +144,7 @@ model Order {
   serveAtTable Boolean?
 
   @@index([tableId])
+  @@index([createdAt])
 }
 
 model Table {

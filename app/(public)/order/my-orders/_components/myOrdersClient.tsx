@@ -58,7 +58,7 @@ export default function MyOrdersClient() {
                         >
                             <div className="p-4 flex items-center justify-between gap-3">
                                 <div>
-                                    <p className="font-black text-slate-900">Pedido #{order.id}</p>
+                                    <p className="font-black text-slate-900">Pedido #{order.orderNumber ?? order.id}</p>
                                     <p className="text-xs font-bold text-slate-500">
                                         Total {formatCurrency(parseFloat(order.total || '0'))}
                                     </p>

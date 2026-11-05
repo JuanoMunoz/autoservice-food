@@ -324,17 +324,18 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
     const handleConfirmDriverSelect = async (driverId: string | null, notes?: string, paymentMethod?: string) => {
         if (!driverModalOrder) return
         const orderId = driverModalOrder.id
+        const displayNum = driverModalOrder.orderNumber ?? orderId
         setIsUpdatingId(orderId)
         locallyProcessedIdsRef.current.add(orderId)
 
         try {
             await completeOrderWithDriver(orderId, driverId, notes, paymentMethod)
-            toast.success(`Orden #${orderId} completada exitosamente`)
+            toast.success(`Orden #${displayNum} completada exitosamente`)
             setDriverModalOrder(null)
         } catch (err) {
             console.error('Error completing order with driver:', err)
             locallyProcessedIdsRef.current.delete(orderId)
-            toast.error(`Error al finalizar la orden #${orderId}`)
+            toast.error(`Error al finalizar la orden #${displayNum}`)
         } finally {
             setIsUpdatingId(null)
         }
@@ -343,17 +344,18 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
     const handleConfirmCancel = async () => {
         if (!cancelModalOrder) return
         const orderId = cancelModalOrder.id
+        const displayNum = cancelModalOrder.orderNumber ?? orderId
         setIsUpdatingId(orderId)
         locallyProcessedIdsRef.current.add(orderId)
 
         try {
             await cancelOrder(orderId)
-            toast.info(`Orden #${orderId} cancelada por la cocina`)
+            toast.info(`Orden #${displayNum} cancelada por la cocina`)
             setCancelModalOrder(null)
         } catch (err) {
             console.error('Error canceling order:', err)
             locallyProcessedIdsRef.current.delete(orderId)
-            toast.error(`Error al cancelar la orden #${orderId}`)
+            toast.error(`Error al cancelar la orden #${displayNum}`)
         } finally {
             setIsUpdatingId(null)
         }
@@ -372,7 +374,7 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
             toast.success(`Factura #${order.id} enviada a RawBT`)
         } catch (e) {
             setPendingPrints((prev) => (prev.includes(order.id) ? prev : [...prev, order.id]))
-            toast.error(`No se pudo imprimir #${order.id}`, {
+            toast.error(`No se pudo imprimir #${order.orderNumber ?? order.id}`, {
                 description: e instanceof Error ? e.message : 'Revisa RawBT.',
                 duration: 5000,
             })
@@ -620,7 +622,7 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                             <div className="flex items-center gap-2 text-rose-400 font-black">
                                 <AlertCircle className="w-6 h-6" />
-                                <h3 className="text-lg text-slate-100">Cancelar Orden #{cancelModalOrder.id}</h3>
+                                <h3 className="text-lg text-slate-100">Cancelar Orden #{cancelModalOrder.orderNumber ?? cancelModalOrder.id}</h3>
                             </div>
                             <button
                                 onClick={() => setCancelModalOrder(null)}
@@ -631,7 +633,7 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                         </div>
 
                         <p className="text-sm text-slate-300 font-medium leading-relaxed">
-                            ¿Confirmas la cancelación de la orden <strong className="text-slate-100">#{cancelModalOrder.id}</strong> del cliente{' '}
+                            ¿Confirmas la cancelación de la orden <strong className="text-slate-100">#{cancelModalOrder.orderNumber ?? cancelModalOrder.id}</strong> del cliente{' '}
                             <strong className="text-slate-100">{cancelModalOrder.buyerName || 'Anónimo'}</strong>?
                         </p>
 
@@ -778,11 +780,11 @@ function KDSTicketCard({
                         <button
                             type="button"
                             onClick={onOpenInvoice}
-                            aria-label={`Ver factura de la orden ${order.id}`}
+                            aria-label={`Ver factura de la orden ${order.orderNumber ?? order.id}`}
                             className="text-2xl font-black text-slate-100 tracking-tight cursor-pointer hover:text-amber-300 transition-colors"
                             title="Ver factura"
                         >
-                            #{order.id}
+                            #{order.orderNumber ?? order.id}
                         </button>
                         <span className="text-xs text-slate-500 font-bold">({createdTime})</span>
                     </div>

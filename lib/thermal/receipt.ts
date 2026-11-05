@@ -189,7 +189,7 @@ export function buildReceiptBytes(order: OrderResponse): Uint8Array {
         ? ''
         : `${d.toLocaleDateString('es-CO', { year: 'numeric', month: '2-digit', day: '2-digit' })} ${d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}`
     if (fecha) pairLine(b, 'Fecha:', fecha)
-    pairLine(b, 'Orden:', `#${order.id}`)
+    pairLine(b, 'Orden:', `#${order.orderNumber ?? order.id}`)
     wrapLine(b, `Cliente: ${order.buyerName || 'Cliente Kiosko'}`)
     if (order.buyerPhone) pairLine(b, 'Tel:', order.buyerPhone)
     pairLine(b, 'Servicio:', order.onSite ? 'En local' : 'Domicilio')

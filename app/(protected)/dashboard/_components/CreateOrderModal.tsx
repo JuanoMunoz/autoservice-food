@@ -450,7 +450,7 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
                     notes: notes.trim() || undefined,
                     serveAtTable: contact.onSite ? serveAtTable : undefined,
                 }, contact.onSite ? undefined : { manualDeliveryFee: deliveryFee })
-                toast.success(`Orden #${order.id} creada correctamente`)
+                toast.success(`Orden #${order.orderNumber ?? order.id} creada correctamente`)
                 onCreated(order)
             } catch (error) {
                 toast.error(error instanceof Error ? error.message : 'No se pudo crear la orden')

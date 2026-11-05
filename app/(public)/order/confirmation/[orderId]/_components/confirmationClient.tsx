@@ -99,7 +99,7 @@ export default function ConfirmationClient({ initialOrder }: ConfirmationClientP
                     <span>Volver</span>
                 </button>
                 <h1 className="text-xl font-black text-slate-900 tracking-wide text-center">
-                    Pedido #{order.id}
+                    Pedido #{order.orderNumber ?? order.id}
                 </h1>
                 <button
                     type="button"
@@ -118,7 +118,7 @@ export default function ConfirmationClient({ initialOrder }: ConfirmationClientP
                     <div className="flex flex-col items-center justify-center space-y-2">
                         <OrderStatusBadge status={status} showDescription={true} />
                         <span className="inline-block bg-slate-100 text-slate-900 border border-slate-200 px-3 py-1 rounded-sm text-xs font-black tracking-widest uppercase">
-                            Seguimiento en Vivo — Orden #{order.id}
+                            Seguimiento en Vivo — Orden #{order.orderNumber ?? order.id}
                         </span>
                     </div>
                     <div className="pt-2 border-t border-slate-100">
@@ -205,7 +205,7 @@ export default function ConfirmationClient({ initialOrder }: ConfirmationClientP
                         </div>
 
                         <p className="text-sm text-slate-600 font-medium leading-relaxed">
-                            ¿Estás seguro de que deseas cancelar la orden <strong className="text-slate-900">#{order.id}</strong>? Esta acción no se puede deshacer.
+                            ¿Estás seguro de que deseas cancelar la orden <strong className="text-slate-900">#{order.orderNumber ?? order.id}</strong>? Esta acción no se puede deshacer.
                         </p>
 
                         {errorMessage && (

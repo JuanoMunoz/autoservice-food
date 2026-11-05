@@ -95,6 +95,7 @@ interface LogItem {
   };
   order: {
     id: number;
+    orderNumber?: number;
     buyerName: string;
     buyerPhone?: string | null;
     address: string;
@@ -824,7 +825,7 @@ export default function DomiciliariosClient({
                                     {formatDate(d.date)}
                                   </td>
                                   <td className="p-3 font-mono font-bold text-amber-400">
-                                    #{d.orderId}
+                                    #{d.orderNumber ?? d.orderId}
                                   </td>
                                   <td className="p-3 text-xs max-w-55 truncate">
                                     <span className="text-slate-200 font-bold">{d.buyerName}</span>
@@ -904,7 +905,7 @@ export default function DomiciliariosClient({
                     filteredLogs.map((log) => (
                       <tr key={log.id} className="hover:bg-slate-850/50 transition">
                         <td className="p-3.5 font-mono font-bold text-amber-400">
-                          #{log.orderId}
+                          #{log.order?.orderNumber ?? log.orderId}
                         </td>
                         <td className="p-3.5 font-bold text-white flex items-center gap-2">
                           <Bike className="w-4 h-4 text-amber-400" />

@@ -219,6 +219,7 @@ export async function getDeliveryLogs(driverId?: string, limit = 50) {
       order: {
         select: {
           id: true,
+          orderNumber: true,
           buyerName: true,
           buyerPhone: true,
           address: true,
@@ -325,6 +326,7 @@ export async function getDomiciliariosKPIs() {
 export interface SettlementDetail {
   logId: string;
   orderId: number;
+  orderNumber?: number;
   buyerName: string;
   address: string;
   onSite: boolean;
@@ -369,6 +371,7 @@ export async function getDriverSettlements(fromISO: string, toISO: string, drive
       order: {
         select: {
           id: true,
+          orderNumber: true,
           buyerName: true,
           address: true,
           onSite: true,
@@ -404,6 +407,7 @@ export async function getDriverSettlements(fromISO: string, toISO: string, drive
     entry.details.push({
       logId: log.id,
       orderId: log.orderId,
+      orderNumber: (log.order as any).orderNumber ?? log.orderId,
       buyerName: log.order.buyerName,
       address: log.order.address,
       onSite: log.order.onSite,
@@ -440,6 +444,7 @@ export type CuadreDirection = "driver_owes" | "business_owes" | "none";
 export interface CuadreItem {
   logId: string;
   orderId: number;
+  orderNumber?: number;
   buyerName: string;
   address: string;
   onSite: boolean;
@@ -523,6 +528,7 @@ export async function getCuadres(fromISO: string, toISO: string, driverId?: stri
         order: {
           select: {
             id: true,
+            orderNumber: true,
             buyerName: true,
             address: true,
             onSite: true,
@@ -587,6 +593,7 @@ export async function getCuadres(fromISO: string, toISO: string, driverId?: stri
     const item: CuadreItem = {
       logId: log.id,
       orderId: log.orderId,
+      orderNumber: (log.order as any).orderNumber ?? log.orderId,
       buyerName: log.order.buyerName,
       address: log.order.address,
       onSite: log.order.onSite,

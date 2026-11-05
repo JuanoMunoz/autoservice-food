@@ -38,6 +38,7 @@ export default function CuadresClient({ initialDrivers }: { initialDrivers: Driv
   const [settleTarget, setSettleTarget] = useState<{
     logId: string;
     orderId: number;
+    orderNumber?: number;
     driverName: string;
     direction: string;
     expected: number;
@@ -144,6 +145,7 @@ export default function CuadresClient({ initialDrivers }: { initialDrivers: Driv
   const openSettle = (item: {
     logId: string;
     orderId: number;
+    orderNumber?: number;
     direction: string;
     expected: number;
   }, driverName: string) => {
@@ -162,7 +164,7 @@ export default function CuadresClient({ initialDrivers }: { initialDrivers: Driv
     setSettling(true);
     try {
       await settleDeliveryLog(settleTarget.logId, Math.round(amount), settleNote);
-      toast.success(`Orden #${settleTarget.orderId} cuadrada correctamente`);
+      toast.success(`Orden #${settleTarget.orderNumber ?? settleTarget.orderId} cuadrada correctamente`);
       setSettleTarget(null);
       load(period, driverFilter);
     } catch (e) {
@@ -362,7 +364,7 @@ export default function CuadresClient({ initialDrivers }: { initialDrivers: Driv
                                   {formatDate(item.date)}
                                 </td>
                                 <td className="p-3 font-mono font-bold text-amber-400">
-                                  #{item.orderId}
+                                  #{item.orderNumber ?? item.orderId}
                                 </td>
                                 <td className="p-3 text-xs max-w-55 truncate">
                                   <span className="text-slate-200 font-bold">{item.buyerName}</span>
@@ -399,6 +401,7 @@ export default function CuadresClient({ initialDrivers }: { initialDrivers: Driv
                                         {
                                           logId: item.logId,
                                           orderId: item.orderId,
+                                          orderNumber: item.orderNumber,
                                           direction: item.direction,
                                           expected: item.expected,
                                         },
@@ -474,7 +477,7 @@ export default function CuadresClient({ initialDrivers }: { initialDrivers: Driv
                             </td>
                             <td className="p-3 font-bold text-white">{d.driverName}</td>
                             <td className="p-3 font-mono font-bold text-amber-400">
-                              #{item.orderId}
+                              #{item.orderNumber ?? item.orderId}
                             </td>
                             <td className="p-3">{paymentBadge(item.paymentGroup === "cash" ? "cash" : item.paymentGroup === "transfer" ? "transfer" : null)}</td>
                             <td className="p-3 text-right font-bold text-emerald-400">
@@ -511,7 +514,7 @@ export default function CuadresClient({ initialDrivers }: { initialDrivers: Driv
           >
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-black text-white">
-                Cuadrar orden #{settleTarget.orderId}
+                Cuadrar orden #{settleTarget.orderNumber ?? settleTarget.orderId}
               </h3>
               <button
                 type="button"

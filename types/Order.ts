@@ -92,6 +92,7 @@ export interface Cart {
 
 export interface OrderResponse {
     id: number
+    orderNumber: number
     total: string
     onSite: boolean
     address: string

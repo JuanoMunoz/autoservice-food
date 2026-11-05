@@ -239,6 +239,23 @@ export async function getDrinkDetail(id: string) {
     }
 }
 
+/**
+ * Retorna el rango de inicio y fin del día en hora de Colombia (America/Bogota, UTC-5)
+ * para calcular el consecutivo diario de órdenes que se reinicia a medianoche.
+ */
+function getBogotaDayRange(date = new Date()): { startOfDay: Date; endOfDay: Date } {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Bogota',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    })
+    const bogotaDateStr = formatter.format(date)
+    const startOfDay = new Date(`${bogotaDateStr}T00:00:00-05:00`)
+    const endOfDay = new Date(`${bogotaDateStr}T23:59:59.999-05:00`)
+    return { startOfDay, endOfDay }
+}
+
 export async function createOrder(details: OrderDetails, opts?: CreateOrderOptions): Promise<OrderResponse> {
     try {
         if (details.tableId) {
@@ -276,52 +293,89 @@ export async function createOrder(details: OrderDetails, opts?: CreateOrderOptio
 
         const backendCalculatedTotal = itemsSubtotal + calculatedDeliveryFee
 
-        const order = await prisma.order.create({
-            data: {
-                total: new Prisma.Decimal(backendCalculatedTotal),
-                onSite: details.location === 'onSite',
-                address: details.deliveryAddress?.street || '',
-                addressReference: details.deliveryAddress?.reference?.trim() || null,
-                notes: details.notes?.slice(0, 300).trim() || null,
-                buyerName: details.buyerName,
-                buyerPhone: details.buyerPhone,
-                buyerEmail: details.buyerEmail || null,
-                tableId: details.tableId || null,
-                status: 'CREATED',
-                paymentMethod: details.paymentType || null,
-                deliveryFee: new Prisma.Decimal(calculatedDeliveryFee),
-                serveAtTable: details.location === 'onSite' ? (details.serveAtTable ?? true) : null,
-                items: {
-                    create: details.items.map((item) => ({
-                        quantity: item.quantity || 1,
-                        unitPrice: new Prisma.Decimal(item.price),
-                        note: (item as { note?: string }).note?.slice(0, 140).trim() || null,
-                        ...(item.type === 'product'
-                            ? { productId: (item as any).productId || item.id }
-                            : { drinkId: (item as any).drinkId || item.id }),
-                        ...('ingredients' in item && item.ingredients
-                            ? {
-                                extras: {
-                                    create: item.ingredients.map((ing) => ({
-                                        ingredientId: ing.id,
-                                        quantity: ing.quantity || 1,
-                                        unitPrice: new Prisma.Decimal(ing.price),
-                                    })),
-                                },
-                            }
-                            : {}),
-                        ...('sauces' in item && item.sauces
-                            ? {
-                                sauces: {
-                                    create: item.sauces.map((sauce) => ({
-                                        sauceId: sauce.id,
-                                    })),
-                                },
-                            }
-                            : {}),
-                    })),
+        const { startOfDay, endOfDay } = getBogotaDayRange()
+
+        const order = await prisma.$transaction(async (tx) => {
+            try {
+                await tx.$queryRaw`SELECT pg_advisory_xact_lock(839201)`
+            } catch {
+                // Continuar si no se soporta en modo pooler
+            }
+
+            const lastOrderToday = await tx.order.findFirst({
+                where: {
+                    createdAt: {
+                        gte: startOfDay,
+                        lte: endOfDay,
+                    },
                 },
-            },
+                orderBy: {
+                    orderNumber: 'desc',
+                },
+                select: {
+                    orderNumber: true,
+                },
+            })
+
+            const countToday = await tx.order.count({
+                where: {
+                    createdAt: {
+                        gte: startOfDay,
+                        lte: endOfDay,
+                    },
+                },
+            })
+
+            const nextOrderNumber = Math.max(lastOrderToday?.orderNumber ?? 0, countToday) + 1
+
+            return await tx.order.create({
+                data: {
+                    orderNumber: nextOrderNumber,
+                    total: new Prisma.Decimal(backendCalculatedTotal),
+                    onSite: details.location === 'onSite',
+                    address: details.deliveryAddress?.street || '',
+                    addressReference: details.deliveryAddress?.reference?.trim() || null,
+                    notes: details.notes?.slice(0, 300).trim() || null,
+                    buyerName: details.buyerName,
+                    buyerPhone: details.buyerPhone,
+                    buyerEmail: details.buyerEmail || null,
+                    tableId: details.tableId || null,
+                    status: 'CREATED',
+                    paymentMethod: details.paymentType || null,
+                    deliveryFee: new Prisma.Decimal(calculatedDeliveryFee),
+                    serveAtTable: details.location === 'onSite' ? (details.serveAtTable ?? true) : null,
+                    items: {
+                        create: details.items.map((item) => ({
+                            quantity: item.quantity || 1,
+                            unitPrice: new Prisma.Decimal(item.price),
+                            note: (item as { note?: string }).note?.slice(0, 140).trim() || null,
+                            ...(item.type === 'product'
+                                ? { productId: (item as any).productId || item.id }
+                                : { drinkId: (item as any).drinkId || item.id }),
+                            ...('ingredients' in item && item.ingredients
+                                ? {
+                                    extras: {
+                                        create: item.ingredients.map((ing) => ({
+                                            ingredientId: ing.id,
+                                            quantity: ing.quantity || 1,
+                                            unitPrice: new Prisma.Decimal(ing.price),
+                                        })),
+                                    },
+                                }
+                                : {}),
+                            ...('sauces' in item && item.sauces
+                                ? {
+                                    sauces: {
+                                        create: item.sauces.map((sauce) => ({
+                                            sauceId: sauce.id,
+                                        })),
+                                    },
+                                }
+                                : {}),
+                        })),
+                    },
+                },
+            })
         })
 
         const fullOrder = await getOrderDetail(order.id)
@@ -363,6 +417,7 @@ export async function getOrderDetail(orderId: number): Promise<OrderResponse> {
 
         return {
             id: order.id,
+            orderNumber: (order as any).orderNumber ?? order.id,
             total: order.total.toString(),
             onSite: order.onSite,
             address: order.address,
@@ -461,6 +516,7 @@ export async function getAllActiveOrders(): Promise<OrderResponse[]> {
 
         return orders.map((order) => ({
             id: order.id,
+            orderNumber: (order as any).orderNumber ?? order.id,
             total: order.total.toString(),
             onSite: order.onSite,
             address: order.address,

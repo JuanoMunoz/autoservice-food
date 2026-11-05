@@ -61,7 +61,7 @@ export default function InvoiceReceipt({ order, note }: InvoiceReceiptProps) {
                 </div>
                 <div>
                     <span className="text-slate-500 font-bold block uppercase text-[10px]">Nº de Orden</span>
-                    <span className="font-black text-slate-900">#{order.id}</span>
+                    <span className="font-black text-slate-900">#{order.orderNumber ?? order.id}</span>
                 </div>
                 <div>
                     <span className="text-slate-500 font-bold block uppercase text-[10px]">Cliente</span>

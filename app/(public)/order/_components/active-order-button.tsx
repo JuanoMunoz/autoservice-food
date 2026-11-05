@@ -34,11 +34,11 @@ export default function ActiveOrderButton() {
                 type="button"
                 onClick={() => router.push(`/order/confirmation/${order.id}`)}
                 className="flex items-center gap-2 px-3.5 py-2 bg-secondary hover:bg-secondary-hover text-white rounded-sm transition-all active:scale-95 shadow-sm cursor-pointer touch-manipulation"
-                title={`Ver mi pedido #${order.id}`}
+                title={`Ver mi pedido #${order.orderNumber ?? order.id}`}
             >
                 <Receipt className="w-4 h-4 shrink-0" />
                 <span className="text-xs sm:text-sm font-black whitespace-nowrap">
-                    Mi pedido #{order.id}
+                    Mi pedido #{order.orderNumber ?? order.id}
                 </span>
                 <span className="bg-white/20 text-[10px] font-black uppercase px-2 py-0.5 rounded-sm whitespace-nowrap">
                     {SHORT_LABEL[order.status] ?? 'Activo'}
@@ -87,7 +87,7 @@ export default function ActiveOrderButton() {
                             className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer text-left"
                         >
                             <span className="text-sm font-black text-slate-900">
-                                Pedido #{order.id}
+                                Pedido #{order.orderNumber ?? order.id}
                             </span>
                             <span className="bg-amber-500/10 border border-secondary text-secondary text-[10px] px-2 py-0.5 rounded-sm font-black uppercase">
                                 {SHORT_LABEL[order.status] ?? 'Activo'}
