@@ -85,6 +85,15 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
     const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
     const [noteDraft, setNoteDraft] = useState('')
 
+    // Bloquea el scroll del fondo mientras el modal está abierto (tablet / touch)
+    useEffect(() => {
+        const previousOverflow = document.body.style.overflow
+        document.body.style.overflow = 'hidden'
+        return () => {
+            document.body.style.overflow = previousOverflow
+        }
+    }, [])
+
     // Dynamic Delivery Fee Calculation effect (pauses while manually overridden)
     useEffect(() => {
         if (isFeeManual) return
@@ -185,7 +194,7 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
     const missing: string[] = []
     if (lines.length === 0) missing.push('agrega 1 producto')
     if (!contact.name.trim()) missing.push('falta nombre')
-    if (phoneDigits.length < 10) missing.push('falta celular (10 dígitos)')
+    if (!contact.onSite && phoneDigits.length < 10) missing.push('falta celular (10 dígitos)')
     if (!contact.onSite && !contact.address.trim()) missing.push('falta dirección')
     const canSubmit = missing.length === 0 && !isSaving
 
@@ -415,11 +424,12 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
     }
 
     const handleCreate = () => {
-        if (!contact.phone.trim() || !contact.name.trim()) {
-            toast.error('El celular y el nombre son obligatorios')
+        if (!contact.name.trim()) {
+            toast.error('El nombre es obligatorio')
             return
         }
-        if (phoneDigits.length < 10) {
+        // En local solo se requiere el nombre; el celular es opcional.
+        if (!contact.onSite && phoneDigits.length < 10) {
             toast.error('El celular debe tener 10 dígitos')
             return
         }
@@ -465,14 +475,14 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/85 backdrop-blur-sm sm:items-center sm:p-4"
+            className="fixed inset-0 z-50 flex h-[100dvh] w-full items-end justify-center overflow-hidden bg-slate-950/85 backdrop-blur-sm sm:items-center sm:p-4"
             onClick={requestClose}
             role="dialog"
             aria-modal="true"
             aria-label="Añadir orden"
         >
             <div
-                className="flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-t-3xl border border-slate-700 bg-slate-900 shadow-2xl sm:rounded-2xl"
+                className="flex h-full w-full max-w-6xl flex-col overflow-hidden rounded-t-3xl border border-slate-700 bg-slate-900 shadow-2xl sm:h-[calc(100dvh-2rem)] sm:rounded-2xl"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
@@ -522,7 +532,7 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
                             </div>
                         </div>
 
-                        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
                             {filteredCards.length === 0 ? (
                                 <p className="py-10 text-center text-base text-slate-500">Sin resultados para “{search}”</p>
                             ) : (
@@ -569,13 +579,13 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
                     </section>
 
                     {/* Summary */}
-                    <section className={`flex w-full flex-col border-t border-slate-800 bg-slate-950/60 md:min-h-0 md:w-[400px] md:flex-none md:overflow-visible md:border-l md:border-t-0 lg:w-[430px] ${detailsOpen ? 'min-h-0 flex-1 overflow-y-auto overscroll-contain' : 'shrink-0'}`} aria-label="Resumen del pedido">
+                    <section className={`flex min-h-0 w-full flex-col overflow-y-auto overscroll-contain border-t border-slate-800 bg-slate-950/60 md:w-[400px] md:flex-none md:border-l md:border-t-0 lg:w-[430px] ${detailsOpen ? 'flex-1' : 'max-h-[48dvh] shrink-0 md:max-h-none'}`} aria-label="Resumen del pedido">
                         <div className="flex shrink-0 items-center justify-between px-4 pt-3">
                             <h3 className="text-base font-black text-white">Resumen</h3>
                             <span className="text-xs font-bold text-slate-500">{lines.length} ítem(s) · {lines.reduce((n, l) => n + l.quantity, 0)} uds</span>
                         </div>
 
-                        <div className={`space-y-2 p-4 md:min-h-0 md:max-h-none md:flex-1 md:overflow-y-auto ${detailsOpen ? '' : 'max-h-[28vh] min-h-0 flex-1 overflow-y-auto'}`}>
+                        <div className="space-y-2 p-4">
                             {lines.length === 0 ? (
                                 <p className="py-8 text-center text-base text-slate-500">Toca una tarjeta para comenzar.<br />1 toque = 1 unidad.</p>
                             ) : lines.map((line) => (
@@ -665,8 +675,9 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
                             {detailsOpen && (
                                 <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/60 p-3">
                                     <div>
-                                        <label htmlFor="cust-phone" className="mb-1 block text-xs font-bold text-slate-400">Celular * {isAutocompleting && <span className="text-slate-500">(buscando…)</span>}</label>
-                                        <input id="cust-phone" value={contact.phone} onChange={(e) => updateContact('phone', e.target.value)} placeholder="Número de celular (10 dígitos)" type="tel" inputMode="tel" autoComplete="tel" className="min-h-12 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-base text-white outline-none focus:border-amber-400" />
+                                        <label htmlFor="cust-phone" className="mb-1 block text-xs font-bold text-slate-400">Celular {contact.onSite ? '(opcional)' : '*'} {isAutocompleting && <span className="text-slate-500">(buscando…)</span>}</label>
+                                        <input id="cust-phone" value={contact.phone} onChange={(e) => updateContact('phone', e.target.value)} placeholder={contact.onSite ? 'Celular (opcional)' : 'Número de celular (10 dígitos)'} type="tel" inputMode="tel" autoComplete="tel" className="min-h-12 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-base text-white outline-none focus:border-amber-400" />
+                                        {contact.onSite && <p className="mt-1 text-[11px] font-bold text-emerald-300">En local solo necesitas el nombre.</p>}
                                     </div>
                                     <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2">
                                         <div>
