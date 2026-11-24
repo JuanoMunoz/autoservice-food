@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { Bike, Check, User, X, MapPin, Store } from 'lucide-react';
 import { getActiveDeliveryDrivers } from '../(core)/_actions/domiciliarios';
-import { OrderResponse } from '@/types/Order';
+import { OrderResponse, PaymentType } from '@/types/Order';
 import { formatCurrency } from '@/utils/cartStorage';
+import PaymentSplitPicker from './PaymentSplitPicker';
 
 interface ActiveDriver {
   id: string;
@@ -18,7 +20,11 @@ interface SelectDriverModalProps {
   order: OrderResponse | null;
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (driverId: string | null, notes?: string, paymentMethod?: string) => Promise<void>;
+  onConfirm: (
+    driverId: string | null,
+    notes?: string,
+    payment?: { method: string; cashAmount?: number; transferAmount?: number }
+  ) => Promise<void>;
 }
 
 export default function SelectDriverModal({
@@ -30,7 +36,9 @@ export default function SelectDriverModal({
   const [drivers, setDrivers] = useState<ActiveDriver[]>([]);
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('cash');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentType>('cash');
+  const [cashAmount, setCashAmount] = useState('');
+  const [transferAmount, setTransferAmount] = useState('');
   const [isLoadingDrivers, setIsLoadingDrivers] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -39,9 +47,17 @@ export default function SelectDriverModal({
       // intencionado: fetch-on-open clásico; el loading vive en el ciclo de la promesa
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsLoadingDrivers(true);
-      // Prefill del pago con el registrado en la orden
+      // Prefill del pago (incluido el reparto dividido) con lo registrado en la orden
       const pm = order?.paymentMethod;
-      setPaymentMethod(pm === 'transfer' ? 'transfer' : 'cash');
+      const method: PaymentType = pm === 'cash' || pm === 'transfer' || pm === 'split' ? pm : 'cash';
+      setPaymentMethod(method);
+      const total = Math.round(parseFloat(order?.total || '0')) || 0;
+      setCashAmount(order?.cashAmount != null
+        ? String(Math.round(Number(order.cashAmount)))
+        : method === 'cash' ? String(total) : '0');
+      setTransferAmount(order?.transferAmount != null
+        ? String(Math.round(Number(order.transferAmount)))
+        : method === 'transfer' ? String(total) : '0');
       getActiveDeliveryDrivers()
         .then((data) => {
           setDrivers(data || []);
@@ -64,9 +80,18 @@ export default function SelectDriverModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const total = Math.round(parseFloat(order?.total || '0')) || 0;
+    if (paymentMethod === 'split' && Math.abs((Number(cashAmount) || 0) + (Number(transferAmount) || 0) - total) > 2) {
+      toast.error('Efectivo + transferencia deben sumar el total del pedido');
+      return;
+    }
     setIsSubmitting(true);
     try {
-      await onConfirm(selectedDriverId, notes, paymentMethod);
+      await onConfirm(selectedDriverId, notes, {
+        method: paymentMethod,
+        cashAmount: paymentMethod === 'split' ? Number(cashAmount) || 0 : undefined,
+        transferAmount: paymentMethod === 'split' ? Number(transferAmount) || 0 : undefined,
+      });
       onClose();
     } catch (err) {
       console.error('Error in select driver confirmation:', err);
@@ -212,32 +237,21 @@ export default function SelectDriverModal({
             )}
           </div>
 
-          {/* Optional Delivery Notes */}
+          {/* Payment split (mismo selector que al crear/editar el pedido) */}
           <div>
-            <label className="block text-xs font-bold text-slate-300 mb-2">
-              Método de pago del domicilio:
-            </label>
-            <div className="grid grid-cols-2 gap-2" role="group" aria-label="Método de pago">
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('cash')}
-                aria-pressed={paymentMethod === 'cash'}
-                className={`rounded-xl border px-3 py-2.5 text-xs font-black cursor-pointer transition-all ${paymentMethod === 'cash' ? 'border-emerald-400 bg-emerald-500 text-slate-950' : 'border-slate-800 text-slate-400 hover:bg-slate-900'}`}
-              >
-                Efectivo
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('transfer')}
-                aria-pressed={paymentMethod === 'transfer'}
-                className={`rounded-xl border px-3 py-2.5 text-xs font-black cursor-pointer transition-all ${paymentMethod === 'transfer' ? 'border-sky-400 bg-sky-500 text-slate-950' : 'border-slate-800 text-slate-400 hover:bg-slate-900'}`}
-              >
-                Transferencia
-              </button>
-            </div>
+            <PaymentSplitPicker
+              method={paymentMethod}
+              onMethodChange={setPaymentMethod}
+              cashAmount={cashAmount}
+              transferAmount={transferAmount}
+              onCashAmountChange={setCashAmount}
+              onTransferAmountChange={setTransferAmount}
+              total={parseFloat(order.total || '0') || 0}
+            />
             {selectedDriverId && !order.onSite && (
               <p className="mt-2 text-xs font-bold text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2">
-                El domiciliario gana {formatCurrency(parseFloat(order.deliveryFee || '0'))} por este domicilio
+                El domiciliario gana {formatCurrency(parseFloat(order.deliveryFee || '0'))} por este domicilio ·
+                {' '}entregará/recibirá el efectivo menos esa ganancia
               </p>
             )}
           </div>

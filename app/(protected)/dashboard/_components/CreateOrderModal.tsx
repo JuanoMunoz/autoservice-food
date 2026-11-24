@@ -3,17 +3,20 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Search, Plus, Minus, Trash2, X, ShoppingBag, UserRound, MapPin, Truck, RefreshCw, StickyNote, ChevronDown, Check, Loader2 } from 'lucide-react'
-import { createAdminOrder, findLatestCustomerByPhone } from '../actions'
+import { createAdminOrder, updateAdminOrder, findLatestCustomerByPhone, getActiveTablesForOrders } from '../actions'
 import { calculateDeliveryFee } from '@/app/(public)/order/actions'
 import LocationPickerModal from '@/app/(public)/order/checkout/_components/LocationPickerModal'
+import PaymentSplitPicker from './PaymentSplitPicker'
 import type { AdminCustomerContact, AdminOrderCatalog } from '@/types/AdminOrder'
-import type { CartItem, OrderResponse, DeliveryFeeCalculationResult } from '@/types/Order'
+import type { CartItem, OrderResponse, DeliveryFeeCalculationResult, PaymentType, OrderDetails } from '@/types/Order'
 import { formatCurrency } from '@/utils/cartStorage'
 
 interface CreateOrderModalProps {
     catalog: AdminOrderCatalog
     onClose: () => void
-    onCreated: (order: OrderResponse) => void
+    onSaved: (order: OrderResponse) => void
+    /** Si se entrega, el modal pasa a modo edición de ese pedido (cualquier estado). */
+    editingOrder?: OrderResponse | null
 }
 
 type FilterChip = 'all' | 'product' | 'drink'
@@ -50,7 +53,7 @@ const emptyContact: AdminCustomerContact = {
 const MAX_NOTES = 300
 const MAX_ITEM_NOTE = 140
 
-export default function CreateOrderModal({ catalog, onClose, onCreated }: CreateOrderModalProps) {
+export default function CreateOrderModal({ catalog, onClose, onSaved, editingOrder }: CreateOrderModalProps) {
     const [contact, setContact] = useState<AdminCustomerContact>(emptyContact)
     const [filter, setFilter] = useState<FilterChip>('all')
     const [search, setSearch] = useState('')
@@ -70,9 +73,13 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
     const [isCalculatingFee, setIsCalculatingFee] = useState(false)
     const [coords, setCoords] = useState<{ lat: number; lng: number } | undefined>(undefined)
     const [isMapOpen, setIsMapOpen] = useState(false)
-    const [paymentType, setPaymentType] = useState<'cash' | 'transfer'>('cash')
+    const [paymentType, setPaymentType] = useState<PaymentType>('cash')
     const [pagaCon, setPagaCon] = useState('')
+    const [cashAmount, setCashAmount] = useState('')
+    const [transferAmount, setTransferAmount] = useState('')
     const [serveAtTable, setServeAtTable] = useState(true)
+    const [tableId, setTableId] = useState<string>('')
+    const [tables, setTables] = useState<Array<{ id: string; number: number; name: string | null }>>([])
 
     // Customer autocomplete
     const [isAutocompleting, startAutocomplete] = useTransition()
@@ -93,6 +100,84 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
             document.body.style.overflow = previousOverflow
         }
     }, [])
+
+    // Mesas activas (para asignar la orden desde el editor)
+    useEffect(() => {
+        let active = true
+        getActiveTablesForOrders()
+            .then((data) => { if (active) setTables(data) })
+            .catch(() => { /* el editor funciona igual sin mesas */ })
+        return () => { active = false }
+    }, [])
+
+    // Modo edición: precarga TODA la orden (ítems, cliente, entrega, pago).
+    useEffect(() => {
+        if (!editingOrder) return
+        const initialLines: DraftLine[] = (editingOrder.items ?? []).map((item) => {
+            const catalogId = item.product?.id ?? item.drink?.id ?? ''
+            const label = item.product?.name ?? item.drink?.name ?? 'Ítem'
+            const basePrice = Number(item.unitPrice) || 0
+            const extras = item.extras ?? []
+            const sauces = (item.sauces ?? []).map((s) => s.sauce)
+            const extrasLabelParts: string[] = []
+            if (extras.length) extrasLabelParts.push(`+ ${extras.map((e) => e.ingredient.name).join(', ')}`)
+            if (sauces.length) extrasLabelParts.push(`Salsas: ${sauces.map((s) => s.name).join(', ')}`)
+            const common = {
+                id: catalogId,
+                name: label,
+                description: (item.product?.description ?? item.drink?.description) || '',
+                price: basePrice,
+                quantity: item.quantity,
+                note: item.note ?? undefined,
+            }
+            const cartItem: CartItem = item.product
+                ? {
+                    ...common, type: 'product', productId: catalogId,
+                    ingredients: extras.map((e) => ({
+                        id: e.ingredient.id, name: e.ingredient.name,
+                        price: Number(e.unitPrice) || 0, quantity: e.quantity,
+                    })),
+                    sauces: sauces.map((s) => ({ id: s.id, name: s.name, hex: s.hex })),
+                }
+                : { ...common, type: 'drink', drinkId: catalogId }
+            return {
+                id: crypto.randomUUID(), catalogId,
+                kind: item.product ? 'product' as const : 'drink' as const,
+                label, price: basePrice, quantity: item.quantity,
+                extrasLabel: extrasLabelParts.join(' · ') || undefined,
+                note: item.note ?? undefined,
+                item: cartItem,
+            }
+        })
+        // Precarga del editor: intencionado, se ejecuta al abrir con una orden existente.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setLines(initialLines)
+        setContact({
+            name: editingOrder.buyerName || '',
+            phone: editingOrder.buyerPhone || '',
+            email: editingOrder.buyerEmail || '',
+            address: editingOrder.address || '',
+            reference: editingOrder.addressReference || '',
+            onSite: editingOrder.onSite,
+        })
+        setNotes(editingOrder.notes || '')
+        setServeAtTable(editingOrder.serveAtTable ?? true)
+        setTableId(editingOrder.table?.id ?? '')
+        setDeliveryFee(Number(editingOrder.deliveryFee) || 0)
+        // Al editar no tenemos las coordenadas originales: conservamos el fee guardado.
+        setIsFeeManual(!editingOrder.onSite)
+        setCoords(undefined)
+        const pm = editingOrder.paymentMethod
+        const method: PaymentType = pm === 'cash' || pm === 'transfer' || pm === 'split' ? pm : 'cash'
+        setPaymentType(method)
+        const total = Math.round(Number(editingOrder.total) || 0)
+        setCashAmount(editingOrder.cashAmount != null
+            ? String(Math.round(Number(editingOrder.cashAmount)))
+            : method === 'cash' ? String(total) : '0')
+        setTransferAmount(editingOrder.transferAmount != null
+            ? String(Math.round(Number(editingOrder.transferAmount)))
+            : method === 'transfer' ? String(total) : '0')
+    }, [editingOrder])
 
     // Dynamic Delivery Fee Calculation effect (pauses while manually overridden)
     useEffect(() => {
@@ -186,9 +271,6 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
     const subtotal = lines.reduce((sum, line) => sum + line.price * line.quantity, 0)
     const activeDeliveryFee = contact.onSite ? 0 : deliveryFee
     const finalTotal = subtotal + activeDeliveryFee
-
-    const pagaConNum = Number(pagaCon.replace(/[^0-9]/g, '')) || 0
-    const cambio = pagaConNum > 0 ? pagaConNum - finalTotal : null
 
     // Validation with explicit missing text (not color alone)
     const missing: string[] = []
@@ -423,7 +505,7 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
         setNoteDraft('')
     }
 
-    const handleCreate = () => {
+    const handleSave = () => {
         if (!contact.name.trim()) {
             toast.error('El nombre es obligatorio')
             return
@@ -441,10 +523,17 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
             toast.error('Agrega al menos un producto al pedido')
             return
         }
+        if (paymentType === 'split') {
+            const sum = (Number(cashAmount) || 0) + (Number(transferAmount) || 0)
+            if (Math.abs(sum - finalTotal) > 2) {
+                toast.error('Efectivo + transferencia deben sumar el total del pedido')
+                return
+            }
+        }
 
         startSaving(async () => {
             try {
-                const order = await createAdminOrder({
+                const details: OrderDetails = {
                     location: contact.onSite ? 'onSite' : 'delivery',
                     items: lines.map((line) => line.item),
                     buyerName: contact.name.trim(),
@@ -456,14 +545,21 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
                         coordinates: coords,
                     },
                     paymentType,
+                    cashAmount: paymentType === 'split' ? Number(cashAmount) || 0 : undefined,
+                    transferAmount: paymentType === 'split' ? Number(transferAmount) || 0 : undefined,
                     total: finalTotal,
                     notes: notes.trim() || undefined,
                     serveAtTable: contact.onSite ? serveAtTable : undefined,
-                }, contact.onSite ? undefined : { manualDeliveryFee: deliveryFee })
-                toast.success(`Orden #${order.orderNumber ?? order.id} creada correctamente`)
-                onCreated(order)
+                    tableId: contact.onSite && tableId ? tableId : undefined,
+                }
+                const opts = contact.onSite ? undefined : { manualDeliveryFee: deliveryFee }
+                const order = editingOrder
+                    ? await updateAdminOrder(editingOrder.id, details, opts)
+                    : await createAdminOrder(details, opts)
+                toast.success(`Orden #${order.orderNumber ?? order.id} ${editingOrder ? 'actualizada' : 'creada'} correctamente`)
+                onSaved(order)
             } catch (error) {
-                toast.error(error instanceof Error ? error.message : 'No se pudo crear la orden')
+                toast.error(error instanceof Error ? error.message : `No se pudo ${editingOrder ? 'actualizar' : 'crear'} la orden`)
             }
         })
     }
@@ -479,7 +575,7 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
             onClick={requestClose}
             role="dialog"
             aria-modal="true"
-            aria-label="Añadir orden"
+            aria-label={editingOrder ? 'Editar orden' : 'Añadir orden'}
         >
             <div
                 className="flex h-full w-full max-w-6xl flex-col overflow-hidden rounded-t-3xl border border-slate-700 bg-slate-900 shadow-2xl sm:h-[calc(100dvh-2rem)] sm:rounded-2xl"
@@ -490,8 +586,11 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
                     <div className="flex items-center gap-3">
                         <div className="rounded-xl bg-amber-500/15 p-2.5 text-amber-300"><ShoppingBag className="h-5 w-5" /></div>
                         <div>
-                            <h2 className="text-lg font-black text-white">Añadir orden</h2>
-                            <p className="text-xs font-medium text-slate-400">Toca una tarjeta para agregar · {lines.reduce((n, l) => n + l.quantity, 0)} uds</p>
+                            <h2 className="text-lg font-black text-white">{editingOrder ? `Editar orden #${editingOrder.orderNumber ?? editingOrder.id}` : 'Añadir orden'}</h2>
+                            <p className="text-xs font-medium text-slate-400">
+                                {editingOrder ? 'Cambia lo necesario y guarda · ' : 'Toca una tarjeta para agregar · '}
+                                {lines.reduce((n, l) => n + l.quantity, 0)} uds
+                            </p>
                         </div>
                     </div>
                     <button type="button" onClick={requestClose} className="flex min-h-12 min-w-12 items-center justify-center rounded-xl p-2 text-slate-400 hover:bg-slate-800 hover:text-white focus-visible:outline-2 focus-visible:outline-amber-400" aria-label="Cerrar modal"><X className="h-6 w-6" /></button>
@@ -707,6 +806,22 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
                                                 />
                                                 Llevar a mesa
                                             </label>
+                                            {tables.length > 0 && (
+                                                <div className="mt-2">
+                                                    <label htmlFor="order-table" className="mb-1 block text-xs font-bold text-slate-400">Mesa (opcional)</label>
+                                                    <select
+                                                        id="order-table"
+                                                        value={tableId}
+                                                        onChange={(e) => setTableId(e.target.value)}
+                                                        className="min-h-12 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-base text-white outline-none focus:border-amber-400"
+                                                    >
+                                                        <option value="">Sin mesa asignada</option>
+                                                        {tables.map((t) => (
+                                                            <option key={t.id} value={t.id}>Mesa {t.number}{t.name ? ` · ${t.name}` : ''}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 
@@ -747,27 +862,17 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
                                         </div>
                                     </div>
 
-                                    <div>
-                                        <p id="pay-label" className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">Método de pago</p>
-                                        <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-labelledby="pay-label">
-                                            <button type="button" role="radio" aria-checked={paymentType === 'cash'} onClick={() => setPaymentType('cash')} className={`min-h-12 rounded-xl border px-3 text-sm font-black cursor-pointer transition-all active:scale-[0.98] ${paymentType === 'cash' ? 'border-amber-400 bg-amber-500 text-slate-950 shadow-md' : 'border-slate-700 text-slate-400 hover:bg-slate-900'}`}>Efectivo</button>
-                                            <button type="button" role="radio" aria-checked={paymentType === 'transfer'} onClick={() => setPaymentType('transfer')} className={`min-h-12 rounded-xl border px-3 text-sm font-black cursor-pointer transition-all active:scale-[0.98] ${paymentType === 'transfer' ? 'border-amber-400 bg-amber-500 text-slate-950 shadow-md' : 'border-slate-700 text-slate-400 hover:bg-slate-900'}`}>Transferencia</button>
-                                        </div>
-                                        {paymentType === 'cash' && (
-                                            <div className="mt-2 flex items-center gap-2">
-                                                <div className="flex-1">
-                                                    <label htmlFor="paga-con" className="mb-1 block text-xs font-bold text-slate-400">Paga con (opcional)</label>
-                                                    <input id="paga-con" value={pagaCon} onChange={(e) => setPagaCon(e.target.value.replace(/[^0-9]/g, '').slice(0, 7))} placeholder="Ej: 50000" type="text" inputMode="numeric" className="min-h-12 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-base text-white outline-none focus:border-amber-400" />
-                                                </div>
-                                                <div className="flex-1 rounded-xl bg-slate-950 p-2 text-center" aria-live="polite">
-                                                    <p className="text-[11px] font-bold uppercase text-slate-500">Cambio</p>
-                                                    <p className={`text-lg font-black ${cambio !== null && cambio >= 0 ? 'text-emerald-300' : 'text-slate-400'}`}>
-                                                        {cambio === null ? '—' : cambio >= 0 ? formatCurrency(cambio) : `Faltan ${formatCurrency(-cambio)}`}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
+                                    <PaymentSplitPicker
+                                        method={paymentType}
+                                        onMethodChange={setPaymentType}
+                                        cashAmount={cashAmount}
+                                        transferAmount={transferAmount}
+                                        onCashAmountChange={setCashAmount}
+                                        onTransferAmountChange={setTransferAmount}
+                                        total={finalTotal}
+                                        pagaCon={pagaCon}
+                                        onPagaConChange={setPagaCon}
+                                    />
                                 </div>
                             )}
 
@@ -787,16 +892,18 @@ export default function CreateOrderModal({ catalog, onClose, onCreated }: Create
 
                             {!canSubmit && (
                                 <p className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-amber-200/90" role="status">
-                                    Para crear: {missing.join(' · ')}
+                                    Para {editingOrder ? 'guardar' : 'crear'}: {missing.join(' · ')}
                                 </p>
                             )}
                             <button
                                 type="button"
-                                onClick={handleCreate}
+                                onClick={handleSave}
                                 disabled={!canSubmit}
                                 className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 px-4 text-base font-black text-slate-950 shadow-lg shadow-amber-500/20 transition-all active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-200"
                             >
-                                {isSaving ? (<><Loader2 className="h-5 w-5 animate-spin" /> Creando orden…</>) : `Crear orden · ${formatCurrency(finalTotal)}`}
+                                {isSaving
+                                    ? (<><Loader2 className="h-5 w-5 animate-spin" /> {editingOrder ? 'Guardando cambios…' : 'Creando orden…'}</>)
+                                    : `${editingOrder ? 'Guardar cambios' : 'Crear orden'} · ${formatCurrency(finalTotal)}`}
                             </button>
                         </div>
                     </section>

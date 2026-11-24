@@ -1,5 +1,5 @@
 export type LocationType = 'onSite' | 'delivery'
-export type PaymentType = 'cash' | 'transfer'
+export type PaymentType = 'cash' | 'transfer' | 'split'
 export type OrderStatus = 'CREATED' | 'PREPARING' | 'DELIVERING' | 'COMPLETED' | 'CANCELLED'
 
 export interface CartIngredient {
@@ -70,6 +70,9 @@ export interface OrderDetails {
     buyerEmail?: string
     deliveryAddress?: DeliveryAddress
     paymentType?: PaymentType
+    /** Montos del reparto (obligatorios y sumatorios al total cuando paymentType === 'split') */
+    cashAmount?: number
+    transferAmount?: number
     total: number
     tableId?: string
     notes?: string
@@ -102,8 +105,11 @@ export interface OrderResponse {
     buyerPhone?: string
     buyerEmail?: string
     status: OrderStatus
-    /** cash | transfer — null/undefined = no registrado */
+    /** cash | transfer | split — null/undefined = no registrado */
     paymentMethod?: string | null
+    /** Reparto real del pago (string para mantener el contrato de OrderResponse) */
+    cashAmount?: string | null
+    transferAmount?: string | null
     /** Valor del domicilio cobrado en la orden (0 en local) */
     deliveryFee?: string
     /** Solo consumo local: true = en mesa, false = para llevar, null = sin dato (orden anterior) */

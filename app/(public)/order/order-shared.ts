@@ -8,6 +8,8 @@
  * ("Only async functions are allowed to be exported in a use server file").
  */
 
+import type { CartItem } from '@/types/Order'
+
 export const MAX_MANUAL_DELIVERY_FEE = 100000
 
 export interface CreateOrderOptions {
@@ -17,6 +19,23 @@ export interface CreateOrderOptions {
      * así que el flujo público sigue 100% automático.
      */
     manualDeliveryFee?: number
+}
+
+/** Subtotal de ítems calculado siempre en servidor (el total del cliente se ignora). */
+export function calculateItemsSubtotal(items: CartItem[]): number {
+    let subtotal = 0
+    for (const item of items) {
+        const itemPrice = Number(item.price) || 0
+        let extrasTotal = 0
+        if (item.type === 'product' && item.ingredients) {
+            extrasTotal = item.ingredients.reduce(
+                (sum, ing) => sum + (Number(ing.price) || 0) * (ing.quantity || 1),
+                0
+            )
+        }
+        subtotal += (itemPrice + extrasTotal) * (item.quantity || 1)
+    }
+    return subtotal
 }
 
 export function sanitizeManualDeliveryFee(value: unknown): number | undefined {

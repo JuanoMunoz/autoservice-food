@@ -42,6 +42,8 @@ export default function CuadresClient({ initialDrivers }: { initialDrivers: Driv
     driverName: string;
     direction: string;
     expected: number;
+    cashAmount?: number;
+    transferAmount?: number;
   } | null>(null);
   const [settleAmount, setSettleAmount] = useState("");
   const [settleNote, setSettleNote] = useState("");
@@ -135,6 +137,12 @@ export default function CuadresClient({ initialDrivers }: { initialDrivers: Driv
           Transferencia
         </span>
       );
+    if (g === "split")
+      return (
+        <span className="inline-flex items-center text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
+          Dividido
+        </span>
+      );
     return (
       <span className="inline-flex items-center text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-slate-500/15 text-slate-400 border border-slate-500/30">
         No registrado
@@ -148,6 +156,8 @@ export default function CuadresClient({ initialDrivers }: { initialDrivers: Driv
     orderNumber?: number;
     direction: string;
     expected: number;
+    cashAmount?: number;
+    transferAmount?: number;
   }, driverName: string) => {
     setSettleTarget({ ...item, driverName });
     setSettleAmount(String(item.expected));
@@ -259,6 +269,14 @@ export default function CuadresClient({ initialDrivers }: { initialDrivers: Driv
                 Bruto {formatMoney(summary.grossSales)} − domicilios{" "}
                 {formatMoney(summary.deliveryFees)}
               </p>
+              <p className="text-[11px] font-bold mt-1">
+                <span className="text-emerald-400">Efectivo {formatMoney(summary.cashTotal)}</span>
+                {" · "}
+                <span className="text-sky-400">Transferencia {formatMoney(summary.transferTotal)}</span>
+                {summary.splitCount > 0 && (
+                  <span className="text-amber-300"> · {summary.splitCount} dividido(s)</span>
+                )}
+              </p>
             </div>
             <div className="p-5 rounded-2xl bg-slate-900 border border-rose-500/30">
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
@@ -352,6 +370,7 @@ export default function CuadresClient({ initialDrivers }: { initialDrivers: Driv
                               <th className="p-3">Cliente</th>
                               <th className="p-3">Pago</th>
                               <th className="p-3 text-right">Total</th>
+                              <th className="p-3 text-right">Desglose</th>
                               <th className="p-3 text-right">Domicilio</th>
                               <th className="p-3 text-right">A mover</th>
                               <th className="p-3 text-right">Cuadrar</th>
@@ -373,9 +392,13 @@ export default function CuadresClient({ initialDrivers }: { initialDrivers: Driv
                                     — {item.onSite ? "Local" : item.address}
                                   </span>
                                 </td>
-                                <td className="p-3">{paymentBadge(item.paymentGroup === "cash" ? "cash" : item.paymentGroup === "transfer" ? "transfer" : null)}</td>
+                                <td className="p-3">{paymentBadge(item.paymentGroup)}</td>
                                 <td className="p-3 text-right font-bold text-slate-200">
                                   {formatMoney(item.orderTotal)}
+                                </td>
+                                <td className="p-3 text-right text-[11px] font-bold whitespace-nowrap">
+                                  <span className="text-emerald-400">E {formatMoney(item.cashAmount)}</span>
+                                  <span className="block text-sky-400">T {formatMoney(item.transferAmount)}</span>
                                 </td>
                                 <td className="p-3 text-right font-bold text-slate-400">
                                   {formatMoney(item.earning)}
@@ -404,6 +427,8 @@ export default function CuadresClient({ initialDrivers }: { initialDrivers: Driv
                                           orderNumber: item.orderNumber,
                                           direction: item.direction,
                                           expected: item.expected,
+                                          cashAmount: item.cashAmount,
+                                          transferAmount: item.transferAmount,
                                         },
                                         d.driverName
                                       )
@@ -479,7 +504,7 @@ export default function CuadresClient({ initialDrivers }: { initialDrivers: Driv
                             <td className="p-3 font-mono font-bold text-amber-400">
                               #{item.orderNumber ?? item.orderId}
                             </td>
-                            <td className="p-3">{paymentBadge(item.paymentGroup === "cash" ? "cash" : item.paymentGroup === "transfer" ? "transfer" : null)}</td>
+                            <td className="p-3">{paymentBadge(item.paymentGroup)}</td>
                             <td className="p-3 text-right font-bold text-emerald-400">
                               {formatMoney(item.settledAmount ?? item.expected)}
                             </td>
@@ -539,6 +564,21 @@ export default function CuadresClient({ initialDrivers }: { initialDrivers: Driv
                 <span className="font-bold text-slate-300">sin movimiento esperado</span>
               )}
             </p>
+            {(settleTarget.cashAmount !== undefined || settleTarget.transferAmount !== undefined) && (
+              <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 space-y-1 text-xs">
+                <div className="flex justify-between">
+                  <span className="font-bold text-emerald-400">Cobrado en efectivo</span>
+                  <span className="font-black text-white">{formatMoney(settleTarget.cashAmount ?? 0)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-bold text-sky-400">Cobrado por transferencia</span>
+                  <span className="font-black text-white">{formatMoney(settleTarget.transferAmount ?? 0)}</span>
+                </div>
+                <p className="text-[11px] text-slate-500 pt-1">
+                  El domiciliario se queda la ganancia del domicilio; la transferencia ya está en la cuenta del negocio.
+                </p>
+              </div>
+            )}
             <div>
               <label className="block text-xs font-bold uppercase tracking-wide text-slate-400 mb-1.5">
                 Monto real {settleTarget.direction === "driver_owes" ? "recibido" : "entregado"}

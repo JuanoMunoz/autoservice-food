@@ -3,6 +3,11 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/lib/generated/prisma/client";
 import { groupPaymentMethod, type SettlementPaymentGroup } from "@/lib/payment-groups";
+import {
+  resolvePaymentSplit,
+  snapshotPaymentSplit,
+  settlementExpectation,
+} from "@/lib/payment-split";
 import { requireRole, runWithAuditContext } from "@/utils/auth";
 import { revalidatePath } from "next/cache";
 import { serializePrisma } from "@/utils/serializePrisma";
@@ -159,7 +164,8 @@ export async function completeOrderWithDriver(
   orderId: number,
   driverId?: string | null,
   notes?: string,
-  paymentMethod?: string | null
+  payment?: string | null,
+  splitAmounts?: { cashAmount?: number; transferAmount?: number }
 ) {
   await requireRole(["SUPER_ADMIN", "ADMIN"]);
 
@@ -171,21 +177,33 @@ export async function completeOrderWithDriver(
     throw new Error("Pedido no encontrado.");
   }
 
-  const normalizedPayment =
-    paymentMethod === "cash" || paymentMethod === "transfer"
-      ? paymentMethod
-      : order.paymentMethod ?? null;
+  const method =
+    payment === "cash" || payment === "transfer" || payment === "split"
+      ? payment
+      : (order.paymentMethod ?? null);
+  const resolved = resolvePaymentSplit(
+    method,
+    splitAmounts?.cashAmount ?? order.cashAmount,
+    splitAmounts?.transferAmount ?? order.transferAmount,
+    Number(order.total)
+  );
 
-  // Update order status to COMPLETED (guarda el pago si la orden no lo tenía)
+  // Update order status to COMPLETED y guarda el reparto de pago vigente
   const updatedOrder = await prisma.order.update({
     where: { id: orderId },
     data: {
       status: "COMPLETED",
-      ...(order.paymentMethod ? {} : { paymentMethod: normalizedPayment }),
+      ...(payment !== undefined
+        ? {
+            paymentMethod: resolved.method,
+            cashAmount: new Prisma.Decimal(resolved.cashAmount),
+            transferAmount: new Prisma.Decimal(resolved.transferAmount),
+          }
+        : {}),
     },
   });
 
-  // If driver assigned, create delivery log with earning snapshot
+  // If driver assigned, create delivery log with earning + payment snapshot
   if (driverId) {
     const driver = await prisma.deliveryDriver.findUnique({ where: { id: driverId } });
     if (driver) {
@@ -195,7 +213,9 @@ export async function completeOrderWithDriver(
           driverId,
           orderTotal: order.total,
           notes: notes?.trim() || null,
-          paymentMethod: normalizedPayment,
+          paymentMethod: resolved.method,
+          cashAmount: new Prisma.Decimal(resolved.cashAmount),
+          transferAmount: new Prisma.Decimal(resolved.transferAmount),
           driverEarning: order.onSite ? 0 : order.deliveryFee,
         },
       });
@@ -331,6 +351,9 @@ export interface SettlementDetail {
   address: string;
   onSite: boolean;
   paymentGroup: SettlementPaymentGroup;
+  /** Desglose real del pago (útil cuando paymentGroup === "split") */
+  cashAmount: number;
+  transferAmount: number;
   earning: number;
   date: string;
 }
@@ -342,6 +365,7 @@ export interface DriverSettlement {
   earnings: number;
   cash: { count: number; earnings: number };
   transfer: { count: number; earnings: number };
+  split: { count: number; earnings: number };
   unknown: { count: number; earnings: number };
   details: SettlementDetail[];
 }
@@ -386,6 +410,12 @@ export async function getDriverSettlements(fromISO: string, toISO: string, drive
   for (const log of logs) {
     const earning = Number(log.driverEarning);
     const group = groupPaymentMethod(log.paymentMethod);
+    const snapshot = snapshotPaymentSplit(
+      log.paymentMethod,
+      log.cashAmount,
+      log.transferAmount,
+      Number(log.orderTotal)
+    );
     let entry = byDriver.get(log.driverId);
     if (!entry) {
       entry = {
@@ -395,6 +425,7 @@ export async function getDriverSettlements(fromISO: string, toISO: string, drive
         earnings: 0,
         cash: { count: 0, earnings: 0 },
         transfer: { count: 0, earnings: 0 },
+        split: { count: 0, earnings: 0 },
         unknown: { count: 0, earnings: 0 },
         details: [],
       };
@@ -412,6 +443,8 @@ export async function getDriverSettlements(fromISO: string, toISO: string, drive
       address: log.order.address,
       onSite: log.order.onSite,
       paymentGroup: group,
+      cashAmount: snapshot.cashAmount,
+      transferAmount: snapshot.transferAmount,
       earning,
       date: log.createdAt.toISOString(),
     });
@@ -424,9 +457,10 @@ export async function getDriverSettlements(fromISO: string, toISO: string, drive
       earnings: acc.earnings + s.earnings,
       cashCount: acc.cashCount + s.cash.count,
       transferCount: acc.transferCount + s.transfer.count,
+      splitCount: acc.splitCount + s.split.count,
       unknownCount: acc.unknownCount + s.unknown.count,
     }),
-    { trips: 0, earnings: 0, cashCount: 0, transferCount: 0, unknownCount: 0 }
+    { trips: 0, earnings: 0, cashCount: 0, transferCount: 0, splitCount: 0, unknownCount: 0 }
   );
 
   return serializePrisma({ settlements, totals, from: from.toISOString(), to: to.toISOString() });
@@ -450,6 +484,9 @@ export interface CuadreItem {
   onSite: boolean;
   paymentGroup: SettlementPaymentGroup;
   orderTotal: number;
+  /** Reparto efectivo / transferencia del pedido */
+  cashAmount: number;
+  transferAmount: number;
   earning: number;
   /** Monto esperado del cuadre (lo que debe moverse de manos) */
   expected: number;
@@ -480,6 +517,10 @@ export interface CuadresSummary {
   grossSales: number;
   /** Suma de domicilios cobrados (ganancia total de repartidores) */
   deliveryFees: number;
+  /** Desglose de lo cobrado en el período */
+  cashTotal: number;
+  transferTotal: number;
+  splitCount: number;
   toCollect: number;
   toPay: number;
   /** Efectivo ya recibido de drivers (cuadres cash) */
@@ -496,16 +537,18 @@ function cuadreExpectation(
   onSite: boolean,
   paymentGroup: SettlementPaymentGroup,
   orderTotal: number,
-  earning: number
+  earning: number,
+  cashAmount?: unknown,
+  transferAmount?: unknown
 ): { expected: number; direction: CuadreDirection } {
   if (onSite) return { expected: 0, direction: "none" };
-  if (paymentGroup === "cash") {
-    return { expected: Math.max(0, orderTotal - earning), direction: "driver_owes" };
-  }
-  if (paymentGroup === "transfer") {
-    return { expected: Math.max(0, earning), direction: "business_owes" };
-  }
-  return { expected: 0, direction: "none" };
+  const snapshot = snapshotPaymentSplit(
+    paymentGroup === "unknown" ? null : paymentGroup,
+    cashAmount,
+    transferAmount,
+    orderTotal
+  );
+  return settlementExpectation(snapshot.cashAmount, earning, snapshot.method);
 }
 
 export async function getCuadres(fromISO: string, toISO: string, driverId?: string) {
@@ -543,7 +586,14 @@ export async function getCuadres(fromISO: string, toISO: string, driverId?: stri
         status: "COMPLETED",
         createdAt: { gte: from, lte: to },
       },
-      select: { total: true, deliveryFee: true, onSite: true },
+      select: {
+        total: true,
+        deliveryFee: true,
+        onSite: true,
+        paymentMethod: true,
+        cashAmount: true,
+        transferAmount: true,
+      },
     }),
   ]);
 
@@ -552,6 +602,9 @@ export async function getCuadres(fromISO: string, toISO: string, driverId?: stri
     netSales: 0,
     grossSales: 0,
     deliveryFees: 0,
+    cashTotal: 0,
+    transferTotal: 0,
+    splitCount: 0,
     toCollect: 0,
     toPay: 0,
     collected: 0,
@@ -568,13 +621,35 @@ export async function getCuadres(fromISO: string, toISO: string, driverId?: stri
     summary.grossSales += total;
     summary.netSales += total - fee;
     summary.deliveryFees += fee;
+    const split = snapshotPaymentSplit(
+      o.paymentMethod,
+      o.cashAmount,
+      o.transferAmount,
+      total
+    );
+    summary.cashTotal += split.cashAmount;
+    summary.transferTotal += split.transferAmount;
+    if (o.paymentMethod === "split") summary.splitCount += 1;
   }
 
   for (const log of logs) {
     const orderTotal = Number(log.orderTotal);
     const earning = Number(log.driverEarning);
     const group = groupPaymentMethod(log.paymentMethod);
-    const { expected, direction } = cuadreExpectation(log.order.onSite, group, orderTotal, earning);
+    const paymentSnapshot = snapshotPaymentSplit(
+      group === "unknown" ? null : group,
+      log.cashAmount,
+      log.transferAmount,
+      orderTotal
+    );
+    const { expected, direction } = cuadreExpectation(
+      log.order.onSite,
+      group,
+      orderTotal,
+      earning,
+      paymentSnapshot.cashAmount,
+      paymentSnapshot.transferAmount
+    );
 
     let entry = byDriver.get(log.driverId);
     if (!entry) {
@@ -599,6 +674,8 @@ export async function getCuadres(fromISO: string, toISO: string, driverId?: stri
       onSite: log.order.onSite,
       paymentGroup: group,
       orderTotal,
+      cashAmount: paymentSnapshot.cashAmount,
+      transferAmount: paymentSnapshot.transferAmount,
       earning,
       expected,
       direction,
@@ -698,7 +775,9 @@ export async function settleAllDriverLogs(driverId: string, fromISO: string, toI
           log.order.onSite,
           groupPaymentMethod(log.paymentMethod),
           Number(log.orderTotal),
-          Number(log.driverEarning)
+          Number(log.driverEarning),
+          log.cashAmount,
+          log.transferAmount
         );
         totalExpected += expected;
         return prisma.deliveryLog.update({

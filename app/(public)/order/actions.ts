@@ -3,7 +3,8 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/lib/generated/prisma/client'
 import { OrderDetails, OrderResponse, OrderStatus, DeliveryFeeCalculationResult } from '@/types/Order'
-import { sanitizeManualDeliveryFee, type CreateOrderOptions } from './order-shared'
+import { calculateItemsSubtotal, sanitizeManualDeliveryFee, type CreateOrderOptions } from './order-shared'
+import { resolvePaymentSplit } from '@/lib/payment-split'
 
 export async function getProducts() {
     try {
@@ -266,19 +267,8 @@ export async function createOrder(details: OrderDetails, opts?: CreateOrderOptio
             if (!table) throw new Error('Table not found or inactive')
         }
 
-        // Calculate backend items total
-        let itemsSubtotal = 0
-        for (const item of details.items) {
-            let itemPrice = Number(item.price) || 0
-            let extrasTotal = 0
-            if ('ingredients' in item && item.ingredients) {
-                extrasTotal = item.ingredients.reduce(
-                    (sum, ing) => sum + (Number(ing.price) || 0) * (ing.quantity || 1),
-                    0
-                )
-            }
-            itemsSubtotal += (itemPrice + extrasTotal) * (item.quantity || 1)
-        }
+        // Calculate backend items total (nunca se confía en details.total)
+        const itemsSubtotal = calculateItemsSubtotal(details.items)
 
         let calculatedDeliveryFee = 0
         if (details.location === 'delivery') {
@@ -292,6 +282,12 @@ export async function createOrder(details: OrderDetails, opts?: CreateOrderOptio
         }
 
         const backendCalculatedTotal = itemsSubtotal + calculatedDeliveryFee
+        const payment = resolvePaymentSplit(
+            details.paymentType,
+            details.cashAmount,
+            details.transferAmount,
+            backendCalculatedTotal
+        )
 
         const { startOfDay, endOfDay } = getBogotaDayRange()
 
@@ -341,7 +337,9 @@ export async function createOrder(details: OrderDetails, opts?: CreateOrderOptio
                     buyerEmail: details.buyerEmail || null,
                     tableId: details.tableId || null,
                     status: 'CREATED',
-                    paymentMethod: details.paymentType || null,
+                    paymentMethod: payment.method,
+                    cashAmount: new Prisma.Decimal(payment.cashAmount),
+                    transferAmount: new Prisma.Decimal(payment.transferAmount),
                     deliveryFee: new Prisma.Decimal(calculatedDeliveryFee),
                     serveAtTable: details.location === 'onSite' ? (details.serveAtTable ?? true) : null,
                     items: {
@@ -430,6 +428,8 @@ export async function getOrderDetail(orderId: number): Promise<OrderResponse> {
             createdAt: order.createdAt.toISOString(),
             updatedAt: order.updatedAt.toISOString(),
             paymentMethod: order.paymentMethod ?? null,
+            cashAmount: order.cashAmount?.toString() ?? null,
+            transferAmount: order.transferAmount?.toString() ?? null,
             deliveryFee: order.deliveryFee.toString(),
             serveAtTable: order.serveAtTable ?? null,
             table: order.table
@@ -529,6 +529,8 @@ export async function getAllActiveOrders(): Promise<OrderResponse[]> {
             createdAt: order.createdAt.toISOString(),
             updatedAt: order.updatedAt.toISOString(),
             paymentMethod: order.paymentMethod ?? null,
+            cashAmount: order.cashAmount?.toString() ?? null,
+            transferAmount: order.transferAmount?.toString() ?? null,
             deliveryFee: order.deliveryFee.toString(),
             serveAtTable: order.serveAtTable ?? null,
             table: order.table

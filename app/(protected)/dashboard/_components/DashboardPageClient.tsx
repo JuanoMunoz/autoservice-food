@@ -12,6 +12,7 @@ import CreateOrderModal from './CreateOrderModal'
 import SelectDriverModal from './SelectDriverModal'
 import InvoiceReceipt from '@/app/_components/InvoiceReceipt'
 import { completeOrderWithDriver } from '../(core)/_actions/domiciliarios'
+import { searchOrdersForEditing } from '../actions'
 import {
     Flame,
     CheckCircle2,
@@ -28,7 +29,9 @@ import {
     Printer,
     FileText,
     UserPlus,
-    Bluetooth
+    Bluetooth,
+    Search,
+    Pencil
 } from 'lucide-react'
 
 interface DashboardPageClientProps {
@@ -52,6 +55,11 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
     const [invoiceModalOrder, setInvoiceModalOrder] = useState<OrderResponse | null>(null)
     const [driverModalOrder, setDriverModalOrder] = useState<OrderResponse | null>(null)
     const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false)
+    const [editingOrder, setEditingOrder] = useState<OrderResponse | null>(null)
+    const [isSearchOpen, setIsSearchOpen] = useState(false)
+    const [searchQuery, setSearchQuery] = useState('')
+    const [searchResults, setSearchResults] = useState<OrderResponse[]>([])
+    const [isSearching, setIsSearching] = useState(false)
     const [now, setNow] = useState<number>(() => Date.now())
     // Facturas pendientes de impresión térmica (ids)
     const [pendingPrints, setPendingPrints] = useState<number[]>([])
@@ -321,7 +329,11 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
         }
     }
 
-    const handleConfirmDriverSelect = async (driverId: string | null, notes?: string, paymentMethod?: string) => {
+    const handleConfirmDriverSelect = async (
+        driverId: string | null,
+        notes?: string,
+        payment?: { method: string; cashAmount?: number; transferAmount?: number }
+    ) => {
         if (!driverModalOrder) return
         const orderId = driverModalOrder.id
         const displayNum = driverModalOrder.orderNumber ?? orderId
@@ -329,7 +341,10 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
         locallyProcessedIdsRef.current.add(orderId)
 
         try {
-            await completeOrderWithDriver(orderId, driverId, notes, paymentMethod)
+            await completeOrderWithDriver(orderId, driverId, notes, payment?.method, {
+                cashAmount: payment?.cashAmount,
+                transferAmount: payment?.transferAmount,
+            })
             toast.success(`Orden #${displayNum} completada exitosamente`)
             setDriverModalOrder(null)
         } catch (err) {
@@ -359,6 +374,36 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
         } finally {
             setIsUpdatingId(null)
         }
+    }
+
+    const runOrderSearch = async (query: string) => {
+        const q = query.trim()
+        if (!q) {
+            setSearchResults([])
+            return
+        }
+        setIsSearching(true)
+        try {
+            setSearchResults(await searchOrdersForEditing(q))
+        } catch {
+            toast.error('No se pudieron buscar los pedidos')
+        } finally {
+            setIsSearching(false)
+        }
+    }
+
+    const handleOrderSaved = (order: OrderResponse) => {
+        setIsCreateOrderOpen(false)
+        setEditingOrder(null)
+        setOrders((current) => {
+            const exists = current.some((o) => o.id === order.id)
+            const isActive = ['CREATED', 'PREPARING', 'DELIVERING'].includes(order.status)
+            if (!isActive) return current.filter((o) => o.id !== order.id)
+            return exists
+                ? current.map((o) => (o.id === order.id ? order : o))
+                : [order, ...current]
+        })
+        if (isSearchOpen) runOrderSearch(searchQuery)
     }
 
     // Impresión térmica vía RawBT (DIG-C58 por SPP; requiere app RawBT instalada
@@ -474,6 +519,15 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                     </button>
 
                     <button
+                        type="button"
+                        onClick={() => setIsSearchOpen(true)}
+                        className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 min-h-11 text-xs font-black text-slate-200 transition-colors hover:bg-slate-800 cursor-pointer"
+                    >
+                        <Search className="h-4 w-4" aria-hidden="true" />
+                        Buscar / Editar pedido
+                    </button>
+
+                    <button
                         onClick={() => setAutoPrint(!autoPrint)}
                         aria-pressed={autoPrint}
                         className={`flex items-center gap-2 px-3 min-h-11 rounded-xl border text-xs font-bold transition-colors cursor-pointer ${autoPrint
@@ -526,6 +580,7 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                                     isUpdating={updatingId === order.id}
                                     onNext={() => handleNextStage(order)}
                                     onCancel={() => setCancelModalOrder(order)}
+                                    onEdit={() => setEditingOrder(order)}
                                     onOpenInvoice={() => setInvoiceModalOrder(order)}
                                     onPrintThermal={() => handleThermalPrint(order)}
                                     pendingPrint={pendingPrints.includes(order.id)}
@@ -561,6 +616,7 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                                     isUpdating={updatingId === order.id}
                                     onNext={() => handleNextStage(order)}
                                     onCancel={() => setCancelModalOrder(order)}
+                                    onEdit={() => setEditingOrder(order)}
                                     onOpenInvoice={() => setInvoiceModalOrder(order)}
                                     onPrintThermal={() => handleThermalPrint(order)}
                                     pendingPrint={pendingPrints.includes(order.id)}
@@ -596,6 +652,7 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                                     isUpdating={updatingId === order.id}
                                     onNext={() => handleNextStage(order)}
                                     onCancel={() => setCancelModalOrder(order)}
+                                    onEdit={() => setEditingOrder(order)}
                                     onOpenInvoice={() => setInvoiceModalOrder(order)}
                                     onPrintThermal={() => handleThermalPrint(order)}
                                     pendingPrint={pendingPrints.includes(order.id)}
@@ -711,17 +768,112 @@ export default function DashboardPageClient({ initialOrders, catalog }: Dashboar
                 </div>
             )}
 
-            {isCreateOrderOpen && (
+            {(isCreateOrderOpen || !!editingOrder) && (
                 <CreateOrderModal
                     catalog={catalog}
-                    onClose={() => setIsCreateOrderOpen(false)}
-                    onCreated={(order) => {
+                    editingOrder={editingOrder}
+                    onClose={() => {
                         setIsCreateOrderOpen(false)
-                        if (order.status === 'CREATED') {
-                            setOrders((current) => [order, ...current])
-                        }
+                        setEditingOrder(null)
                     }}
+                    onSaved={handleOrderSaved}
                 />
+            )}
+
+            {/* Buscador de pedidos (incluye completados y cancelados) */}
+            {isSearchOpen && (
+                <div
+                    className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/85 p-0 backdrop-blur-sm sm:items-center sm:p-4 print:hidden"
+                    onClick={() => setIsSearchOpen(false)}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Buscar y editar pedidos"
+                >
+                    <div
+                        className="flex max-h-[92dvh] w-full max-w-lg flex-col gap-4 overflow-hidden rounded-t-3xl border border-slate-700 bg-slate-900 p-5 shadow-2xl sm:rounded-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between gap-2">
+                            <div>
+                                <h3 className="text-base font-black text-white">Buscar pedido</h3>
+                                <p className="text-[11px] text-slate-400">Por número, celular o nombre · incluye completados</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsSearchOpen(false)}
+                                className="flex min-h-12 min-w-12 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white cursor-pointer"
+                                aria-label="Cerrar búsqueda"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault()
+                                runOrderSearch(searchQuery)
+                            }}
+                            className="flex gap-2"
+                        >
+                            <label htmlFor="order-search" className="sr-only">Número, celular o nombre</label>
+                            <input
+                                id="order-search"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Ej. 1042 o 3001234567"
+                                inputMode="search"
+                                className="min-h-12 min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 text-base text-white outline-none placeholder:text-slate-500 focus:border-amber-400"
+                            />
+                            <button
+                                type="submit"
+                                disabled={isSearching}
+                                className="min-h-12 rounded-xl bg-amber-500 px-4 text-sm font-black text-slate-950 cursor-pointer disabled:opacity-50"
+                            >
+                                {isSearching ? '…' : 'Buscar'}
+                            </button>
+                        </form>
+
+                        <div className="max-h-[55dvh] space-y-2 overflow-y-auto overscroll-contain">
+                            {searchResults.length === 0 ? (
+                                <p className="py-8 text-center text-xs font-bold text-slate-500">
+                                    {searchQuery.trim() ? 'Sin pedidos para esa búsqueda' : 'Escribe un número, celular o nombre'}
+                                </p>
+                            ) : searchResults.map((order) => {
+                                const statusLabels: Record<string, string> = {
+                                    CREATED: 'Nuevo', PREPARING: 'Preparando',
+                                    DELIVERING: 'Despacho', COMPLETED: 'Completado', CANCELLED: 'Cancelado',
+                                }
+                                return (
+                                    <button
+                                        key={order.id}
+                                        type="button"
+                                        onClick={() => {
+                                            setEditingOrder(order)
+                                            setIsSearchOpen(false)
+                                        }}
+                                        className="flex min-h-16 w-full items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2 text-left cursor-pointer hover:border-amber-500/50 hover:bg-amber-500/5"
+                                    >
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-black text-white">
+                                                #{order.orderNumber ?? order.id}{' '}
+                                                <span className="text-[11px] font-bold text-slate-400">
+                                                    {statusLabels[order.status] || order.status}
+                                                </span>
+                                            </p>
+                                            <p className="truncate text-xs text-slate-400">
+                                                {order.buyerName || 'Cliente'} · {order.paymentMethod === 'split' ? 'Dividido' : order.paymentMethod === 'transfer' ? 'Transferencia' : order.paymentMethod === 'cash' ? 'Efectivo' : 'Sin pago'}
+                                            </p>
+                                        </div>
+                                        <div className="flex shrink-0 items-center gap-2">
+                                            <span className="text-sm font-black text-amber-300">{formatCurrency(parseFloat(order.total))}</span>
+                                            <Pencil className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                                        </div>
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    </div>
+                </div>
             )}
 
             <SelectDriverModal
@@ -740,6 +892,7 @@ interface KDSTicketCardProps {
     isUpdating: boolean
     onNext: () => void
     onCancel: () => void
+    onEdit: () => void
     onOpenInvoice: () => void
     onPrintThermal: () => void
     pendingPrint?: boolean
@@ -752,6 +905,7 @@ function KDSTicketCard({
     isUpdating,
     onNext,
     onCancel,
+    onEdit,
     onOpenInvoice,
     onPrintThermal,
     pendingPrint,
@@ -910,7 +1064,7 @@ function KDSTicketCard({
             </div>
 
             {/* Ticket Action Footer: grid fija — nada se desborda, todo táctil ≥48px */}
-            <div className="pt-1 grid grid-cols-[52px_52px_1fr] gap-2">
+            <div className="pt-1 grid grid-cols-[52px_52px_52px_1fr] gap-2">
                 {/* Direct Thermal Print Button (RawBT, 1 tap) */}
                 <button
                     type="button"
@@ -935,6 +1089,18 @@ function KDSTicketCard({
                     title="Cancelar pedido"
                 >
                     <Trash2 className="w-5 h-5" aria-hidden="true" />
+                </button>
+
+                {/* Edit Order Button */}
+                <button
+                    type="button"
+                    onClick={onEdit}
+                    disabled={isUpdating}
+                    aria-label="Editar pedido"
+                    className="min-h-12 bg-slate-800 hover:bg-sky-950 text-slate-300 hover:text-sky-300 border border-slate-700 hover:border-sky-800/60 rounded-xl transition-colors cursor-pointer active:scale-95 disabled:opacity-50 flex items-center justify-center"
+                    title="Editar pedido"
+                >
+                    <Pencil className="w-4.5 h-4.5" aria-hidden="true" />
                 </button>
 
                 {/* Next Stage Advance Button */}

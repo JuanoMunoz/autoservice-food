@@ -136,8 +136,12 @@ model Order {
   updatedAt    DateTime      @updatedAt
   items        OrderItem[]
   deliveryLogs DeliveryLog[]
-  // Método de pago elegido al crear: cash | transfer (null = no registrado)
+  // Método de pago elegido al crear: cash | transfer | split (null = no registrado)
   paymentMethod String?
+  // Reparto del pago: en "split" ambos montos son obligatorios y suman el total.
+  // En cash/transfer se guardan por conveniencia (el otro queda en 0).
+  cashAmount Decimal?
+  transferAmount Decimal?
   // Valor del domicilio cobrado en la orden (0 en consumo local)
   deliveryFee Decimal @default(0)
   // Consumo local: true = entregar en mesa, false = para llevar (null = orden anterior sin dato)
@@ -346,8 +350,11 @@ model DeliveryLog {
   orderTotal Decimal
   notes      String?
   createdAt  DateTime       @default(now())
-  // Snapshot del método de pago al despachar: cash | transfer | null
+  // Snapshot del método de pago al despachar: cash | transfer | split | null
   paymentMethod String?
+  // Snapshot del reparto efectivo/transferencia (para cuadrar solo la parte en efectivo)
+  cashAmount Decimal?
+  transferAmount Decimal?
   // Ganancia del domiciliario = valor del domicilio al despachar
   driverEarning Decimal @default(0)
   // Cuadre de cuentas con el domiciliario

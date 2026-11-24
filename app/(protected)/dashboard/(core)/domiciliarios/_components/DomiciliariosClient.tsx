@@ -232,6 +232,12 @@ export default function DomiciliariosClient({
           Transferencia
         </span>
       );
+    if (g === "split")
+      return (
+        <span className="inline-flex items-center gap-1 text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
+          Dividido
+        </span>
+      );
     return (
       <span className="inline-flex items-center gap-1 text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-slate-500/15 text-slate-400 border border-slate-500/30">
         No registrado
@@ -703,7 +709,7 @@ export default function DomiciliariosClient({
           ) : (
             <>
               {/* Totales del período */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                 <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
                   <p className="text-xs font-medium text-slate-400">Domicilios</p>
                   <p className="text-2xl font-black text-white">{settlement.totals.trips}</p>
@@ -732,6 +738,14 @@ export default function DomiciliariosClient({
                       + {settlement.totals.unknownCount} no registrado(s)
                     </p>
                   )}
+                </div>
+                <div className="p-4 rounded-2xl bg-slate-900 border border-amber-500/30">
+                  <p className="text-xs font-medium text-slate-400">Divididos</p>
+                  <p className="text-2xl font-black text-amber-300">
+                    {settlement.totals.splitCount}{" "}
+                    <span className="text-xs font-bold text-slate-500">dom.</span>
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-1">Efectivo + transferencia</p>
                 </div>
               </div>
 
@@ -783,6 +797,11 @@ export default function DomiciliariosClient({
                               title={`Transferencia: ${s.transfer.count}`}
                             />
                             <div
+                              className="bg-amber-500 h-full"
+                              style={{ width: `${(s.split.count / total) * 100}%` }}
+                              title={`Dividido: ${s.split.count}`}
+                            />
+                            <div
                               className="bg-slate-600 h-full"
                               style={{ width: `${(s.unknown.count / total) * 100}%` }}
                               title={`No registrado: ${s.unknown.count}`}
@@ -797,6 +816,12 @@ export default function DomiciliariosClient({
                               <span className="w-2 h-2 rounded-full bg-sky-500" />
                               Transferencia: {s.transfer.count} · {formatMoney(s.transfer.earnings)}
                             </span>
+                            {s.split.count > 0 && (
+                              <span className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                                Dividido: {s.split.count} · {formatMoney(s.split.earnings)}
+                              </span>
+                            )}
                             {s.unknown.count > 0 && (
                               <span className="flex items-center gap-1.5">
                                 <span className="w-2 h-2 rounded-full bg-slate-500" />
@@ -815,6 +840,7 @@ export default function DomiciliariosClient({
                                 <th className="p-3"># Orden</th>
                                 <th className="p-3">Cliente / Dirección</th>
                                 <th className="p-3">Pago</th>
+                                <th className="p-3 text-right">Desglose</th>
                                 <th className="p-3 text-right">Ganó</th>
                               </tr>
                             </thead>
@@ -832,6 +858,10 @@ export default function DomiciliariosClient({
                                     <span className="text-slate-500"> — {d.onSite ? "Local" : d.address}</span>
                                   </td>
                                   <td className="p-3">{paymentBadge(d.paymentGroup)}</td>
+                                  <td className="p-3 text-right text-[11px] font-bold whitespace-nowrap">
+                                    <span className="text-emerald-400">E {formatMoney(d.cashAmount ?? 0)}</span>
+                                    <span className="block text-sky-400">T {formatMoney(d.transferAmount ?? 0)}</span>
+                                  </td>
                                   <td className="p-3 text-right font-bold text-emerald-400">
                                     {formatMoney(d.earning)}
                                   </td>

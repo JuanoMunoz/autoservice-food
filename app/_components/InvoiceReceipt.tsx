@@ -28,7 +28,10 @@ export default function InvoiceReceipt({ order, note }: InvoiceReceiptProps) {
     const paymentLabel =
         order.paymentMethod === 'cash' ? 'EFECTIVO'
             : order.paymentMethod === 'transfer' ? 'TRANSFERENCIA'
-                : 'NO REGISTRADO'
+                : order.paymentMethod === 'split' ? 'DIVIDIDO (EFECTIVO + TRANSFERENCIA)'
+                    : 'NO REGISTRADO'
+    const cashNum = parseFloat(order.cashAmount || '0') || 0
+    const transferNum = parseFloat(order.transferAmount || '0') || 0
 
     return (
         <div className="bg-white border-2 border-slate-300 rounded-sm p-6 sm:p-8 shadow-md space-y-6 relative print:shadow-none print:border-none print:p-0 print:w-full font-mono text-slate-900">
@@ -191,6 +194,12 @@ export default function InvoiceReceipt({ order, note }: InvoiceReceiptProps) {
                     <span>Método de Pago:</span>
                     <span className="font-black uppercase text-slate-900">{paymentLabel}</span>
                 </div>
+                {order.paymentMethod === 'split' && (
+                    <div className="space-y-1 border-t border-dashed border-slate-300 pt-2 text-xs font-bold text-slate-600">
+                        <div className="flex justify-between"><span>Efectivo</span><span className="text-slate-900">{formatCurrency(cashNum)}</span></div>
+                        <div className="flex justify-between"><span>Transferencia</span><span className="text-slate-900">{formatCurrency(transferNum)}</span></div>
+                    </div>
+                )}
             </div>
 
             {/* Observaciones generales (solo si existen) */}

@@ -161,6 +161,7 @@ function safeNumber(str: string | undefined): number {
 function paymentLabelThermal(method?: string | null): string {
     if (method === 'cash') return 'EFECTIVO'
     if (method === 'transfer') return 'TRANSFERENCIA'
+    if (method === 'split') return 'DIVIDIDO'
     return 'NO REGISTRADO'
 }
 
@@ -241,6 +242,10 @@ export function buildReceiptBytes(order: OrderResponse): Uint8Array {
     centered(b, formatCOP(totalNum))
     b.size(0).bold(false)
     pairLine(b, 'Pago:', paymentLabelThermal(order.paymentMethod))
+    if (order.paymentMethod === 'split') {
+        pairLine(b, '  Efectivo:', formatCOP(safeNumber(order.cashAmount ?? undefined)))
+        pairLine(b, '  Transferencia:', formatCOP(safeNumber(order.transferAmount ?? undefined)))
+    }
     separator(b)
 
     // Observaciones generales (solo si existen, con wrap a 32 cols)

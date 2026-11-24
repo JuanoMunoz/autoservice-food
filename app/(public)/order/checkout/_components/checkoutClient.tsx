@@ -8,7 +8,7 @@ import { PaymentType } from '@/types/Order'
 import { createOrder, getDeliveryFee, calculateDeliveryFee } from '@/app/(public)/order/actions'
 import { addActiveOrderId } from '@/utils/activeOrderStorage'
 import { DeliveryFeeCalculationResult } from '@/types/Order'
-import { ArrowLeft, DollarSign, Send, MapPin, ShoppingBag, Check, Truck, X, Plus, Minus, Trash2, Map } from 'lucide-react'
+import { ArrowLeft, DollarSign, Send, MapPin, ShoppingBag, Check, Truck, X, Plus, Minus, Trash2, Map, ArrowLeftRight } from 'lucide-react'
 import LocationPickerModal from './LocationPickerModal'
 import ActiveOrderButton from '@/app/(public)/order/_components/active-order-button'
 
@@ -42,6 +42,8 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
     const [streetInput, setStreetInput] = useState(cart.deliveryAddress?.street || '')
     const [referenceInput, setReferenceInput] = useState(cart.deliveryAddress?.reference || '')
     const [selectedPayment, setSelectedPayment] = useState<PaymentType | null>(cart.paymentType || 'cash')
+    const [cashAmountInput, setCashAmountInput] = useState('')
+    const [transferAmountInput, setTransferAmountInput] = useState('')
     const [errorModal, setErrorModal] = useState<string | null>(null)
     const [isMapOpen, setIsMapOpen] = useState(false)
     const isNavigatingToConfirmation = useRef(false)
@@ -171,6 +173,14 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
             return
         }
 
+        if (selectedPayment === 'split') {
+            const sum = (Number(cashAmountInput) || 0) + (Number(transferAmountInput) || 0)
+            if (Math.abs(sum - finalTotal) > 2) {
+                setErrorModal(`Efectivo + transferencia deben sumar $${Math.round(finalTotal).toLocaleString('es-CO')}`)
+                return
+            }
+        }
+
         setIsLoading(true)
         try {
             if (!cart.location) {
@@ -198,6 +208,8 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
                 buyerEmail: emailInput.trim() || undefined,
                 deliveryAddress: deliveryAddressToUse,
                 paymentType: selectedPayment,
+                cashAmount: selectedPayment === 'split' ? Number(cashAmountInput) || 0 : undefined,
+                transferAmount: selectedPayment === 'split' ? Number(transferAmountInput) || 0 : undefined,
                 total: finalTotal,
                 tableId: cart.tableId,
             }
@@ -488,7 +500,7 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
                 <div className="bg-white border border-slate-200 rounded-sm p-6 shadow-sm space-y-3">
                     <h3 className="text-base font-black text-slate-900">Método de Pago</h3>
                     <div className="space-y-2">
-                        {['cash', 'transfer'].map((method) => {
+                        {(['cash', 'transfer', 'split'] as PaymentType[]).map((method) => {
                             const isSelected = selectedPayment === method
                             const getPaymentLabel = (m: string) => {
                                 switch (m) {
@@ -496,6 +508,8 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
                                         return { label: 'Efectivo ', icon: <DollarSign className="w-5 h-5 text-slate-800" /> }
                                     case 'transfer':
                                         return { label: 'Transferencia Bancaria (Nequi/Bancolombia)', icon: <Send className="w-5 h-5 text-slate-800" /> }
+                                    case 'split':
+                                        return { label: 'Dividido: efectivo + transferencia', icon: <ArrowLeftRight className="w-5 h-5 text-slate-800" /> }
                                     default:
                                         return { label: m, icon: null }
                                 }
@@ -526,6 +540,50 @@ export default function CheckoutClient({ initialDeliveryFee = 0 }: CheckoutClien
                             )
                         })}
                     </div>
+
+                    {selectedPayment === 'split' && (
+                        <div className="rounded-sm border border-amber-300 bg-amber-50 p-4 space-y-3">
+                            <p className="text-xs font-extrabold uppercase tracking-wide text-amber-800">
+                                ¿Cuánto pagas con cada medio?
+                            </p>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label htmlFor="checkout-cash" className="block text-xs font-bold text-slate-600 mb-1">Efectivo</label>
+                                    <input
+                                        id="checkout-cash"
+                                        type="number"
+                                        min={0}
+                                        step={100}
+                                        value={cashAmountInput}
+                                        onChange={(e) => setCashAmountInput(e.target.value.replace(/[^0-9]/g, '').slice(0, 9))}
+                                        placeholder="0"
+                                        className="w-full p-3 bg-white border border-slate-200 rounded-sm text-slate-900 font-bold focus:outline-none focus:border-secondary"
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="checkout-transfer" className="block text-xs font-bold text-slate-600 mb-1">Transferencia</label>
+                                    <input
+                                        id="checkout-transfer"
+                                        type="number"
+                                        min={0}
+                                        step={100}
+                                        value={transferAmountInput}
+                                        onChange={(e) => setTransferAmountInput(e.target.value.replace(/[^0-9]/g, '').slice(0, 9))}
+                                        placeholder="0"
+                                        className="w-full p-3 bg-white border border-slate-200 rounded-sm text-slate-900 font-bold focus:outline-none focus:border-secondary"
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex justify-between text-xs font-bold" role="status">
+                                <span className="text-slate-600">
+                                    Suma {formatCurrency((Number(cashAmountInput) || 0) + (Number(transferAmountInput) || 0))}
+                                </span>
+                                <span className={(Number(cashAmountInput) || 0) + (Number(transferAmountInput) || 0) === Math.round(finalTotal) ? 'text-emerald-700' : 'text-rose-600'}>
+                                    Total {formatCurrency(finalTotal)}
+                                </span>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Total Summary */}

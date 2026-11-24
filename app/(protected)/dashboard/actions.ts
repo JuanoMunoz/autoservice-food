@@ -8,9 +8,17 @@ import { Role } from "@/lib/generated/prisma/enums";
 import { redirect } from "next/navigation";
 import { requireRole } from "@/utils/auth";
 import { serializePrisma } from "@/utils/serializePrisma";
-import { createOrder } from "@/app/(public)/order/actions";
-import type { CreateOrderOptions } from "@/app/(public)/order/order-shared";
-import type { OrderDetails } from "@/types/Order";
+import { createOrder, getOrderDetail, calculateDeliveryFee } from "@/app/(public)/order/actions";
+import {
+  calculateItemsSubtotal,
+  sanitizeManualDeliveryFee,
+  type CreateOrderOptions,
+} from "@/app/(public)/order/order-shared";
+import { resolvePaymentSplit } from "@/lib/payment-split";
+import { Prisma } from "@/lib/generated/prisma/client";
+import { revalidatePath } from "next/cache";
+import { runWithAuditContext } from "@/utils/auth";
+import type { OrderDetails, OrderResponse } from "@/types/Order";
 import type { AdminOrderCatalog } from "@/types/AdminOrder";
 
 export default async function registerAction(formdata: FormData) {
@@ -146,4 +154,158 @@ export async function findLatestCustomerByPhone(phone: string) {
 export async function createAdminOrder(details: OrderDetails, opts?: CreateOrderOptions) {
     await requireRole(["SUPER_ADMIN", "ADMIN"]);
     return createOrder(details, opts);
+}
+
+/** Mesas activas para asignarlas desde el editor de pedidos del panel. */
+export async function getActiveTablesForOrders() {
+    await requireRole(["SUPER_ADMIN", "ADMIN"]);
+    return prisma.table.findMany({
+        where: { active: true },
+        orderBy: { number: "asc" },
+        select: { id: true, number: true, name: true },
+    });
+}
+
+/** Busca pedidos (incluso completados/cancelados) por número, celular o nombre. */
+export async function searchOrdersForEditing(query: string): Promise<OrderResponse[]> {
+    await requireRole(["SUPER_ADMIN", "ADMIN"]);
+    const q = query.trim();
+    if (!q) return [];
+
+    const numeric = /^\d+$/.test(q) ? Number(q) : null;
+    const where: Prisma.OrderWhereInput = {
+        OR: [
+            { buyerPhone: { contains: q, mode: "insensitive" } },
+            { buyerName: { contains: q, mode: "insensitive" } },
+            ...(numeric !== null ? [{ orderNumber: numeric }] : []),
+        ],
+    };
+    const found = await prisma.order.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        take: 12,
+        select: { id: true },
+    });
+    return Promise.all(found.map((o) => getOrderDetail(o.id)));
+}
+
+/**
+ * Edición integral de un pedido (ítems, cliente, entrega, mesa, notas y pago).
+ * El total se recalcula en servidor y el reparto efectivo/transferencia se
+ * valida contra ese total. También se refreshea el snapshot de cada
+ * delivery_log para que cuadres y domiciliarios usen siempre la misma data.
+ */
+export async function updateAdminOrder(
+    orderId: number,
+    details: OrderDetails,
+    opts?: CreateOrderOptions
+): Promise<OrderResponse> {
+    await requireRole(["SUPER_ADMIN", "ADMIN"]);
+
+    const existing = await prisma.order.findUnique({
+        where: { id: orderId },
+        select: { id: true },
+    });
+    if (!existing) throw new Error("Pedido no encontrado.");
+
+    if (details.tableId) {
+        const table = await prisma.table.findFirst({
+            where: { id: details.tableId, active: true },
+            select: { id: true },
+        });
+        if (!table) throw new Error("Mesa no encontrada o inactiva.");
+    }
+
+    const itemsSubtotal = calculateItemsSubtotal(details.items);
+    let deliveryFee = 0;
+    if (details.location === "delivery") {
+        const manualFee = sanitizeManualDeliveryFee(opts?.manualDeliveryFee);
+        deliveryFee = manualFee !== undefined
+            ? manualFee
+            : (await calculateDeliveryFee(details.deliveryAddress?.coordinates)).fee;
+    }
+
+    const total = itemsSubtotal + deliveryFee;
+    const payment = resolvePaymentSplit(
+        details.paymentType,
+        details.cashAmount,
+        details.transferAmount,
+        total
+    );
+    const onSite = details.location === "onSite";
+
+    await runWithAuditContext(async () => {
+        await prisma.$transaction(async (tx) => {
+            await tx.order.update({
+                where: { id: orderId },
+                data: {
+                    total: new Prisma.Decimal(total),
+                    onSite,
+                    address: details.deliveryAddress?.street || "",
+                    addressReference: details.deliveryAddress?.reference?.trim() || null,
+                    notes: details.notes?.slice(0, 300).trim() || null,
+                    buyerName: details.buyerName,
+                    buyerPhone: details.buyerPhone,
+                    buyerEmail: details.buyerEmail || null,
+                    tableId: onSite ? (details.tableId || null) : null,
+                    paymentMethod: payment.method,
+                    cashAmount: new Prisma.Decimal(payment.cashAmount),
+                    transferAmount: new Prisma.Decimal(payment.transferAmount),
+                    deliveryFee: new Prisma.Decimal(deliveryFee),
+                    serveAtTable: onSite ? (details.serveAtTable ?? true) : null,
+                },
+            });
+
+            // Reemplazo atómico de ítems: los nested extras/salsas se recrean juntos.
+            await tx.orderItem.deleteMany({ where: { orderId } });
+            for (const item of details.items) {
+                await tx.orderItem.create({
+                    data: {
+                        orderId,
+                        quantity: item.quantity || 1,
+                        unitPrice: new Prisma.Decimal(item.price),
+                        note: (item as { note?: string }).note?.slice(0, 140).trim() || null,
+                        ...(item.type === "product"
+                            ? { productId: ('productId' in item ? item.productId : undefined) || item.id }
+                            : { drinkId: ('drinkId' in item ? item.drinkId : undefined) || item.id }),
+                        ...("ingredients" in item && item.ingredients
+                            ? {
+                                extras: {
+                                    create: item.ingredients.map((ing) => ({
+                                        ingredientId: ing.id,
+                                        quantity: ing.quantity || 1,
+                                        unitPrice: new Prisma.Decimal(ing.price),
+                                    })),
+                                },
+                            }
+                            : {}),
+                        ...("sauces" in item && item.sauces
+                            ? {
+                                sauces: {
+                                    create: item.sauces.map((sauce) => ({ sauceId: sauce.id })),
+                                },
+                            }
+                            : {}),
+                    },
+                });
+            }
+
+            await tx.deliveryLog.updateMany({
+                where: { orderId },
+                data: {
+                    paymentMethod: payment.method,
+                    cashAmount: new Prisma.Decimal(payment.cashAmount),
+                    transferAmount: new Prisma.Decimal(payment.transferAmount),
+                    orderTotal: new Prisma.Decimal(total),
+                    driverEarning: onSite ? new Prisma.Decimal(0) : new Prisma.Decimal(deliveryFee),
+                },
+            });
+        });
+    });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/cuadres");
+    revalidatePath("/dashboard/domiciliarios");
+    revalidatePath(`/order/confirmation/${orderId}`);
+    return getOrderDetail(orderId);
 }
